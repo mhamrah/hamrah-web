@@ -11,7 +11,6 @@ export default component$(() => {
         </section>
       </main>
       <footer>
-
       </footer>
     </>
   );

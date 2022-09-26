@@ -5,11 +5,11 @@ import { Link } from '@builder.io/qwik-city';
 export default component$(() => {
   return (
     <div>
-      Hello
+      hello
     </div>
   );
 });
 
 export const head: DocumentHead = {
-  title: "Hamrah's App",
+  title: 'Hamrah App',
 };
