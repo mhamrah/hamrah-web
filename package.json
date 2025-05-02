@@ -41,7 +41,7 @@
 		"prettier": "3.5.3",
 		"typescript": "5.8.3",
 		"undici": "*",
-		"vite": "^6.3.4",
+		"vite": "^5",
 		"vite-tsconfig-paths": "^5.1.4",
 		"wrangler": "^4.14.1"
 	}
