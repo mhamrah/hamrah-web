@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "extends": [
+    "./qwik.json",
+    "./typescript.json",
+    "./tailwind.json"
+  ],
+  "settings": {
+    "severity": "warning",
+    "autofix": true
+  }
+} 

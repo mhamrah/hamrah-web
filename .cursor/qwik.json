@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "component-naming": {
+      "pattern": "^[A-Z][a-zA-Z0-9]*$",
+      "message": "Component names should be PascalCase"
+    },
+    "use-signals": {
+      "pattern": "useSignal\\(",
+      "message": "Prefer signals over state management for reactive data"
+    },
+    "resource-loader": {
+      "pattern": "useResource\\$\\(",
+      "message": "Use resource loaders for async data fetching"
+    },
+    "component-props": {
+      "pattern": "export interface [A-Z][a-zA-Z0-9]*Props",
+      "message": "Define prop interfaces for components"
+    },
+    "prevent-document": {
+      "pattern": "document\\.",
+      "message": "Avoid direct document manipulation, use Qwik's lifecycle methods"
+    },
+    "prevent-window": {
+      "pattern": "window\\.",
+      "message": "Avoid direct window usage, use Qwik's platform abstractions"
+    }
+  }
+} 

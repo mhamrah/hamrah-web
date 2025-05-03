@@ -2,7 +2,8 @@
 	"name": "my-qwik-basic-starter",
 	"description": "Demo app with sample routes",
 	"engines": {
-		"node": "^18.17.0 || ^20.3.0 || >=21.0.0"
+		"node": ">=18.0.0",
+		"pnpm": ">=8.0.0"
 	},
 	"engines-annotation": "Mostly required by sharp which needs a Node-API v9 compatible runtime",
 	"private": true,
@@ -13,17 +14,18 @@
 		"build.preview": "vite build --ssr src/entry.preview.tsx",
 		"build.server": "vite build -c adapters/cloudflare-pages/vite.config.ts",
 		"build.types": "tsc --incremental --noEmit",
-		"deploy": "npm run build && wrangler deploy",
+		"deploy": "pnpm run build && wrangler deploy",
 		"dev": "vite --mode ssr",
 		"dev.debug": "node --inspect-brk ./node_modules/vite/bin/vite.js --mode ssr --force",
 		"fmt": "prettier --write .",
 		"fmt.check": "prettier --check .",
 		"lint": "eslint \"src/**/*.ts*\"",
-		"preview": "npm run build && wrangler dev",
+		"preview": "pnpm run build && wrangler dev",
 		"serve": "wrangler pages dev ./dist --compatibility-flags=nodejs_als",
 		"start": "vite --open --mode ssr",
 		"qwik": "qwik",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"prepare": "pnpm dlx husky install"
 	},
 	"devDependencies": {
 		"@builder.io/qwik": "^1.13.0",
