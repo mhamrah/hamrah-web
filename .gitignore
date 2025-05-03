@@ -47,3 +47,7 @@ functions/**/*.js
 # wrangler files
 .wrangler
 .dev.vars*
+
+
+.nx/cache
+.nx/workspace-data
