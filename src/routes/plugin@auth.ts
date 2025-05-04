@@ -1,10 +1,11 @@
 import { DefaultSession, QwikAuth$ } from "@auth/qwik";
 import Google from "@auth/qwik/providers/google";
+import { D1Adapter } from "@auth/d1-adapter"
 
 
 declare module "@auth/qwik" {
   /**
-   * Returned by the `useSession` hook and the `session` object in the sharedMap
+   * Returned by the `useSession`EnvGetter hook and the `session` object in the sharedMap
    */
   interface Session {
     user: {
@@ -22,12 +23,15 @@ declare module "@auth/qwik" {
 
 
 export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
-  () => ({
+  (ev) => ({
     providers: [Google],
     callbacks: {
-      async session({ session, token }) {
-     
-        session.user.id = token.sub as string;
+      async session({ session, token, user }) {
+
+        console.log("session", session)
+        console.log("token", token )
+        console.log("user", user)
+       // session.user.id = token.sub as string;
         //console.log("session", session, "token", token, "user", user);
         return session;
       },
@@ -37,5 +41,9 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
         return token;
       },
     },
+    experimental: {
+      enableWebAuthn: true
+    },
+   adapter: D1Adapter(ev.platform.env.DB),
   }),
 );
