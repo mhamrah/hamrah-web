@@ -1,4 +1,5 @@
-import { DefaultSession, QwikAuth$ } from "@auth/qwik";
+import { QwikAuth$ } from "@auth/qwik";
+import type { DefaultSession } from "@auth/qwik";
 import Google from "@auth/qwik/providers/google";
 import { D1Adapter } from "@auth/d1-adapter"
 

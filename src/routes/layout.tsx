@@ -1,8 +1,7 @@
-import { component$, Slot, useStyles$ } from "@builder.io/qwik";
+import { component$, Slot } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
 import type { RequestHandler } from "@builder.io/qwik-city";
-
-import { Session } from "@auth/qwik";
+import type { Session } from "@auth/qwik";
 
 export const onRequest: RequestHandler = (event) => {
   const session: Session | null = event.sharedMap.get('session');

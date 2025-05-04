@@ -1,6 +1,7 @@
 
 import { component$ } from "@builder.io/qwik"
-import { DocumentHead, Form } from "@builder.io/qwik-city"
+import { Form } from "@builder.io/qwik-city"
+import type { DocumentHead } from "@builder.io/qwik-city"
 import { useSignIn } from '~/routes/plugin@auth';
 
 import { Link } from "@builder.io/qwik-city"
@@ -28,7 +29,7 @@ export default component$(() => {
       </Link>
     </>
   )
-}) 
+})
 
 export const head: DocumentHead = {
   title: "Hamrah App: Sign In",
