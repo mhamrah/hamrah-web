@@ -57,16 +57,12 @@
     "typescript": "5.8.3",
     "undici": "*",
     "vite": "^5",
+    "vite-plugin-mkcert": "1.17.8",
     "vite-tsconfig-paths": "^5.1.4",
     "wrangler": "^4.14.1"
   },
   "nx": {},
   "dependencies": {
-    "@auth/d1-adapter": "1.9.0",
-    "@auth/drizzle-adapter": "1.9.0",
-    "@simplewebauthn/browser": "9.0.1",
-    "@simplewebauthn/server": "9.0.3",
-    "drizzle-orm": "0.43.1",
-    "next-auth": "4.24.11"
+    "drizzle-orm": "0.43.1"
   }
 }

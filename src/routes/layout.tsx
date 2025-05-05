@@ -4,9 +4,10 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import type { Session } from "@auth/qwik";
 
 export const onRequest: RequestHandler = (event) => {
+  console.log("onRequest", event.url.pathname.startsWith("/auth"))
   const session: Session | null = event.sharedMap.get('session');
-  if (!session || new Date(session.expires) < new Date()) {
-    throw event.redirect(302, `/auth/signin?callbackUrl=${event.url.pathname}`);
+  if ((!session || new Date(session.expires) < new Date()) && !event.url.pathname.startsWith("/auth")) {
+    throw event.redirect(302, `/auth/login?callbackUrl=${event.url.pathname}`);
   }
 };
 

@@ -1,9 +1,10 @@
 import { component$ } from "@builder.io/qwik";
-import type { DocumentHead } from "@builder.io/qwik-city";
-import { useSession } from "~/routes/plugin@auth";
+import { Link, type DocumentHead } from "@builder.io/qwik-city";
+import { useSession, useSignOut } from "~/routes/plugin@auth";
 
 export default component$(() => {
   const session = useSession();
+  const signOutSig = useSignOut();
 
   return (
     <>
@@ -18,16 +19,18 @@ export default component$(() => {
             image: {session.value.user.image}
           </p>
           <p class="text-sm text-muted-foreground">
-            name: {session.value.user.name}
+            name: {session.value.user.name || "unknown"}
           </p>
           <p class="text-sm text-muted-foreground">
             id: {session.value.user.id}
           </p>
- 
+          <Link onClick$={() => signOutSig.submit({ redirectTo: "/" })}>
+            Sign Out
+          </Link>
         </div>
       ) : (
         <p class="mt-4 text-muted-foreground">
-          Please <a href="/auth/signin" class="text-primary hover:underline">sign in</a> to continue
+          Please <a href="/auth/login" class="text-primary hover:underline">sign in here</a> to continue
         </p>
       )}
     </>

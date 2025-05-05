@@ -1,16 +1,15 @@
-import { QwikAuth$ } from "@auth/qwik";
-import type { DefaultSession } from "@auth/qwik";
-import Google from "@auth/qwik/providers/google";
-import { D1Adapter } from "@auth/d1-adapter"
+import { DefaultSession, QwikAuth$ } from "@auth/qwik";
+import Auth0 from "@auth/qwik/providers/auth0";
+
 
 declare module "@auth/qwik" {
   /**
-   * Returned by the `useSession`EnvGetter hook and the `session` object in the sharedMap
+   * Returned by the `useSession` hook and the `session` object in the sharedMap
    */
   interface Session {
     user: {
       /** The user's postal address. */
-      id: string | undefined
+      id: string | null
       /**
        * By default, TypeScript merges new interface properties and overwrites existing ones.
        * In this case, the default session user properties will be overwritten,
@@ -23,28 +22,32 @@ declare module "@auth/qwik" {
 
 
 export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
-  (ev) => ({
-    providers: [Google],
+  () => ({
+    providers: [Auth0({
+      async profile(profile) {
+        console.log("profile", profile)
+        return profile
+      },
+    })],
     callbacks: {
-      async session({ session, token, user }) {
-
-        console.log("session", session)
-        console.log("token", token)
-        console.log("user", user)
-        // session.user.id = token.sub as string;
-        //console.log("session", session, "token", token, "user", user);
-        return session;
+      jwt({ token, user }) {
+        // eslint-disable-next-line
+        if (user !== undefined) {
+          // @ts-ignore
+          token.picture = user.picture
+        }
+        return token
       },
-      async jwt({ token, user, account, profile }) {
-        console.log("jwt", token, "user", user, "account", account, "profile", profile);
-
-        return token;
+      session({ session, token }) {
+        if (token.sub) {
+          session.user.id = token.sub
+        }
+        return session
       },
     },
-    experimental: {
-      enableWebAuthn: true
+    pages: {
+      signIn: "/auth/login",
     },
-    //@ts-ignore
-    adapter: D1Adapter(ev.platform.env.DB),
   }),
+
 );

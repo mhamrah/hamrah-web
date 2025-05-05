@@ -5,6 +5,8 @@
 import { defineConfig, type UserConfig } from "vite";
 import { qwikVite } from "@builder.io/qwik/optimizer";
 import { qwikCity } from "@builder.io/qwik-city/vite";
+import mkcert from "vite-plugin-mkcert";
+
 import tsconfigPaths from "vite-tsconfig-paths";
 import pkg from "./package.json";
 import tailwindcss from "@tailwindcss/vite";
@@ -33,6 +35,7 @@ export default defineConfig(({ command, mode }): UserConfig => {
       qwikVite(),
       tsconfigPaths(),
       tailwindcss(),
+      mkcert(),
     ],
     // This tells Vite which dependencies to pre-build in dev mode.
     optimizeDeps: {
