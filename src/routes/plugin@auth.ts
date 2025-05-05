@@ -1,4 +1,5 @@
-import { DefaultSession, QwikAuth$ } from "@auth/qwik";
+import { QwikAuth$ } from "@auth/qwik";
+import type { DefaultSession } from "@auth/qwik";
 import Auth0 from "@auth/qwik/providers/auth0";
 
 
