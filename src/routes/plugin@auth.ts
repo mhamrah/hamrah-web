@@ -57,6 +57,7 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
     pages: {
       // signIn: "/auth/login",
     },
+    // @ts-ignore
     adapter: D1Adapter(ev.platform.env.DB),
   }),
 
