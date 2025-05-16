@@ -1,7 +1,9 @@
 import { QwikAuth$ } from "@auth/qwik";
 import type { DefaultSession } from "@auth/qwik";
-import Auth0 from "@auth/qwik/providers/auth0";
-
+import Google from "@auth/qwik/providers/google";
+import Apple from "@auth/qwik/providers/apple";
+import { D1Adapter } from "@auth/d1-adapter"
+import type { RequestEventCommon } from "@builder.io/qwik-city";
 
 declare module "@auth/qwik" {
   /**
@@ -23,32 +25,40 @@ declare module "@auth/qwik" {
 
 
 export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
-  () => ({
-    providers: [Auth0({
-      async profile(profile) {
-        console.log("profile", profile)
-        return profile
-      },
-    })],
+  (ev: RequestEventCommon) => ({
+    providers: [
+    //   Auth0({
+    //   async profile(profile) {
+    //     console.log("profile", profile)
+    //     return profile
+    //   },
+    // }
+  //)
+  Google,
+  Apple
+    ],
     callbacks: {
       jwt({ token, user }) {
         // eslint-disable-next-line
         if (user !== undefined) {
           // @ts-ignore
-          token.picture = user.picture
+          token.picture = user.image
         }
         return token
       },
       session({ session, token }) {
-        if (token.sub) {
+        console.log("session", session, token)
+        if (token && token.sub) {
           session.user.id = token.sub
         }
         return session
       },
     },
     pages: {
-      signIn: "/auth/login",
+      // signIn: "/auth/login",
     },
+    adapter: D1Adapter(ev.platform.env.DB),
   }),
 
 );
+
