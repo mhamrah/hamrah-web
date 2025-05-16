@@ -11,13 +11,11 @@ export default component$(() => {
       <h1>Hamrah App</h1>
       {session.value?.user ? (
         <div class="mt-4">
-          <p class="text-lg">Welcome, {session.value.user.email}</p>
+          <p class="text-lg">Welcome, {session.value.user.name}</p>
           <p class="text-sm text-muted-foreground">
             email: {session.value.user.email}
           </p>
-          <p class="text-sm text-muted-foreground">
-            image: {session.value.user.image}
-          </p>
+          {session.value.user.image && <img class="w-16 md:w-32 lg:w-48" src={session.value.user.image} />}
           <p class="text-sm text-muted-foreground">
             name: {session.value.user.name || "unknown"}
           </p>
