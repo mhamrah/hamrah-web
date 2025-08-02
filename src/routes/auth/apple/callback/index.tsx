@@ -44,7 +44,7 @@ export const onPost: RequestHandler = async (event) => {
     let userId: string;
 
     if (existingUser.length > 0) {
-      // Update existing user
+      // Just update timestamp - profile data would come from ID token if needed
       userId = existingUser[0].id;
       await db
         .update(users)
@@ -53,12 +53,12 @@ export const onPost: RequestHandler = async (event) => {
         })
         .where(eq(users.id, userId));
     } else {
-      // Create new user
+      // Create new user - minimal essential data only
       userId = generateUserId();
       await db.insert(users).values({
         id: userId,
         email: idTokenPayload.email,
-        name: idTokenPayload.name || idTokenPayload.email.split("@")[0],
+        name: idTokenPayload.name || idTokenPayload.email.split("@")[0], // Fallback display name
         picture: null, // Apple doesn't provide profile pictures
         provider: "apple",
         providerId: idTokenPayload.sub,

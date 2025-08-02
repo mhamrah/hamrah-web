@@ -76,24 +76,22 @@ export const onGet: RequestHandler = async (event) => {
     let userId: string;
 
     if (existingUser.length > 0) {
-      // Update existing user with latest info from Google
+      // Just update the timestamp - profile data will be fetched fresh from ID token
       userId = existingUser[0].id;
       await db
         .update(users)
         .set({
-          name: googleUser.name || googleUser.email.split("@")[0],
-          picture: googleUser.picture,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
     } else {
-      // Create new user with OpenID Connect claims
+      // Create new user - only store essential data, profile data comes from ID token
       userId = generateUserId();
       await db.insert(users).values({
         id: userId,
         email: googleUser.email,
-        name: googleUser.name || googleUser.email.split("@")[0],
-        picture: googleUser.picture,
+        name: googleUser.name || googleUser.email.split("@")[0], // Fallback display name
+        picture: null, // Don't store - will be fetched fresh from session
         provider: "google",
         providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
         createdAt: new Date(),
@@ -103,6 +101,10 @@ export const onGet: RequestHandler = async (event) => {
     // Create session
     const sessionToken = generateSessionToken();
     const session = await createSession(event, sessionToken, userId);
+
+    // Note: Fresh profile data (picture, locale, etc.) is not stored in DB
+    // to avoid staleness. For apps requiring up-to-date profile data,
+    // consider storing ID token securely or re-fetching from provider.
 
     // Set session cookie
     setSessionTokenCookie(event, sessionToken, session.expiresAt);
