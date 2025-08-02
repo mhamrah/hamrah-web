@@ -35,21 +35,33 @@ export const onGet: RequestHandler = async (event) => {
   const google = getGoogleProvider(event);
   const tokens = await google.validateAuthorizationCode(code, codeVerifier);
 
-  // Fetch user info from Google
-  const response = await fetch(
-    "https://openidconnect.googleapis.com/v1/userinfo",
-    {
-      headers: {
-        Authorization: `Bearer ${tokens.accessToken()}`,
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch user info from Google");
+  // Extract user info from OpenID Connect ID token (more efficient than API call)
+  const idToken = tokens.idToken();
+  if (!idToken) {
+    throw new Error("No ID token received from Google");
   }
 
-  const googleUser = await response.json();
+  const idTokenPayload = JSON.parse(atob(idToken.split(".")[1]));
+  
+  // OpenID Connect standard claims + Google-specific claims
+  const googleUser = {
+    sub: idTokenPayload.sub, // Subject (unique user ID)
+    email: idTokenPayload.email,
+    email_verified: idTokenPayload.email_verified,
+    name: idTokenPayload.name,
+    given_name: idTokenPayload.given_name, // First name
+    family_name: idTokenPayload.family_name, // Last name
+    picture: idTokenPayload.picture,
+    locale: idTokenPayload.locale, // Language preference
+    hd: idTokenPayload.hd, // Hosted domain (for Google Workspace users)
+  };
+  
+  // Additional claims available but not currently stored:
+  // - aud: Audience (your client_id)
+  // - iss: Issuer (https://accounts.google.com)
+  // - iat: Issued at time
+  // - exp: Expiration time
+  // - at_hash: Access token hash
 
   try {
     const db = getDB(event);
@@ -58,32 +70,32 @@ export const onGet: RequestHandler = async (event) => {
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.email, (googleUser as any).email))
+      .where(eq(users.email, googleUser.email))
       .limit(1);
 
     let userId: string;
 
     if (existingUser.length > 0) {
-      // Update existing user
+      // Update existing user with latest info from Google
       userId = existingUser[0].id;
       await db
         .update(users)
         .set({
-          name: (googleUser as any).name,
-          picture: (googleUser as any).picture,
+          name: googleUser.name || googleUser.email.split("@")[0],
+          picture: googleUser.picture,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
     } else {
-      // Create new user
+      // Create new user with OpenID Connect claims
       userId = generateUserId();
       await db.insert(users).values({
         id: userId,
-        email: (googleUser as any).email,
-        name: (googleUser as any).name,
-        picture: (googleUser as any).picture,
+        email: googleUser.email,
+        name: googleUser.name || googleUser.email.split("@")[0],
+        picture: googleUser.picture,
         provider: "google",
-        providerId: (googleUser as any).sub,
+        providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
         createdAt: new Date(),
         updatedAt: new Date(),
       });
