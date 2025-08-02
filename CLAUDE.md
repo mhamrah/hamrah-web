@@ -129,6 +129,11 @@ tsconfig.json
 - **Use Vite's fast HMR** for development
 - **Utilize Tailwind's configuration file** for customization
 
+## Git and Version Control Guidelines
+
+- **Always create a PR from a branch. Never merge to main directly.**
+- **Create a succinct commit message for the PR and outline the change in the description.**
+
 ## Important Notes
 
 - The project uses a pre-commit hook to run linting before commits.
