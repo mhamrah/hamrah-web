@@ -84,7 +84,7 @@ export const onGet: RequestHandler = async (event) => {
     throw event.redirect(302, "/");
   } catch (error) {
     // Don't catch RedirectMessage - it's the expected behavior
-    if (error.constructor.name === 'RedirectMessage') {
+    if (error instanceof Error && error.constructor.name === 'RedirectMessage') {
       throw error;
     }
     

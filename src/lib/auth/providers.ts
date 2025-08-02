@@ -23,5 +23,8 @@ export function getAppleProvider(event: any) {
     throw new Error("Apple OAuth credentials not configured");
   }
   
-  return new Apple(clientId, teamId, keyId, certificate, redirectUri);
+  // Convert PEM string to Uint8Array as required by Arctic
+  const privateKeyUint8Array = new TextEncoder().encode(certificate);
+  
+  return new Apple(clientId, teamId, keyId, privateKeyUint8Array, redirectUri);
 }
