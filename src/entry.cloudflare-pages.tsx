@@ -21,6 +21,12 @@ declare global {
   }
 }
 
-const fetch = createQwikCity({ render, qwikCityPlan, manifest });
+const fetch = createQwikCity({ 
+  render, 
+  qwikCityPlan, 
+  manifest,
+  // Disable CSRF protection for Apple OAuth callback
+  checkOrigin: false,
+});
 
 export { fetch };
