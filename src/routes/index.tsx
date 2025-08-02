@@ -19,29 +19,27 @@ export default component$(() => {
             </a>
           </div>
           
-          {user.value ? (
-            <div class="border-t pt-6">
-              <h2 class="text-xl font-semibold text-gray-900 mb-4">Welcome back!</h2>
-              <div class="flex items-center space-x-4">
-                {user.value.picture && (
-                  <img
-                    src={user.value.picture}
-                    alt={user.value.name}
-                    width="64"
-                    height="64"
-                    class="w-16 h-16 rounded-full"
-                  />
-                )}
-                <div>
-                  <p class="text-lg font-medium text-gray-900">{user.value.name}</p>
-                  <p class="text-sm text-gray-600">{user.value.email}</p>
-                  <p class="text-xs text-gray-500 mt-1">
-                    Signed in with {user.value.provider === 'google' ? 'Google' : 'Apple'}
-                  </p>
-                </div>
+          <div class="border-t pt-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Welcome back!</h2>
+            <div class="flex items-center space-x-4">
+              {user.value.picture && (
+                <img
+                  src={user.value.picture}
+                  alt={user.value.name}
+                  width="64"
+                  height="64"
+                  class="w-16 h-16 rounded-full"
+                />
+              )}
+              <div>
+                <p class="text-lg font-medium text-gray-900">{user.value.name}</p>
+                <p class="text-sm text-gray-600">{user.value.email}</p>
+                <p class="text-xs text-gray-500 mt-1">
+                  Signed in with {user.value.provider === 'google' ? 'Google' : 'Apple'}
+                </p>
               </div>
             </div>
-          ) : null}
+          </div>
           
           <div class="mt-8 border-t pt-6">
             <p class="text-muted-foreground">
