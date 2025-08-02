@@ -133,3 +133,4 @@ tsconfig.json
 
 - The project uses a pre-commit hook to run linting before commits.
 - The app is configured to deploy to Cloudflare Pages and uses Cloudflare D1 as its database.
+- Always run lint and ensure zero errors or warnings before checking in code.
