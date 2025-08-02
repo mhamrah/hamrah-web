@@ -23,10 +23,10 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
   // https://qwik.dev/docs/caching/
   cacheControl({
-    // Always serve a cached response by default, up to a week stale
-    staleWhileRevalidate: 60 * 60 * 24 * 7,
-    // Max once every 5 seconds, revalidate on the server to get a fresh version of this page
-    maxAge: 5,
+    // Shorter cache for auth-protected pages to prevent stale redirects
+    staleWhileRevalidate: 60 * 10, // 10 minutes instead of 7 days
+    // Revalidate more frequently to ensure auth state is current
+    maxAge: 30, // 30 seconds instead of 5
   });
 };
 

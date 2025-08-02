@@ -1,5 +1,13 @@
 import { component$ } from "@builder.io/qwik";
-import type { DocumentHead } from "@builder.io/qwik-city";
+import type { DocumentHead, RequestHandler } from "@builder.io/qwik-city";
+
+export const onGet: RequestHandler = async ({ cacheControl }) => {
+  // Prevent caching of login page to ensure users see current auth state
+  cacheControl({
+    noCache: true,
+    maxAge: 0,
+  });
+};
 
 export default component$(() => {
   return (
