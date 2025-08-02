@@ -1,0 +1,27 @@
+import { Google, Apple } from "arctic";
+
+export function getGoogleProvider(event: any) {
+  const clientId = event.platform.env.GOOGLE_CLIENT_ID;
+  const clientSecret = event.platform.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = `${event.url.origin}/auth/google/callback`;
+  
+  if (!clientId || !clientSecret) {
+    throw new Error("Google OAuth credentials not configured");
+  }
+  
+  return new Google(clientId, clientSecret, redirectUri);
+}
+
+export function getAppleProvider(event: any) {
+  const clientId = event.platform.env.APPLE_CLIENT_ID;
+  const teamId = event.platform.env.APPLE_TEAM_ID;
+  const keyId = event.platform.env.APPLE_KEY_ID;
+  const certificate = event.platform.env.APPLE_CERTIFICATE; // Private key
+  const redirectUri = `${event.url.origin}/auth/apple/callback`;
+  
+  if (!clientId || !teamId || !keyId || !certificate) {
+    throw new Error("Apple OAuth credentials not configured");
+  }
+  
+  return new Apple(clientId, teamId, keyId, certificate, redirectUri);
+}
