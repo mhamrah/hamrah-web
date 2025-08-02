@@ -9,14 +9,8 @@ import {
   setSessionTokenCookie,
 } from "~/lib/auth/session";
 
-// Disable CSRF protection for Apple OAuth callback
-// Apple sends cross-origin POST from https://appleid.apple.com
-export const onRequest: RequestHandler = async (event) => {
-  // Skip CSRF validation for POST requests to this route
-  if (event.request.method === "POST") {
-    (event as any).skipCSRF = true;
-  }
-};
+// CSRF protection handled at entry point level
+// Allows POST from https://appleid.apple.com to this specific route only
 
 export const onPost: RequestHandler = async (event) => {
   // Apple sends POST request with form data
