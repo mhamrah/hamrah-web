@@ -83,7 +83,11 @@ export const onGet: RequestHandler = async (event) => {
 
     throw event.redirect(302, "/");
   } catch (error) {
-    console.error("Google OAuth callback error:", error);
+    // Don't catch RedirectMessage - it's the expected behavior
+    if (error.constructor.name === 'RedirectMessage') {
+      throw error;
+    }
+    
     throw event.redirect(302, "/auth/login?error=oauth_callback_failed");
   }
 };

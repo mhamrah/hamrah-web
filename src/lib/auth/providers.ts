@@ -1,8 +1,8 @@
 import { Google, Apple } from "arctic";
 
 export function getGoogleProvider(event: any) {
-  const clientId = event.platform.env.GOOGLE_CLIENT_ID;
-  const clientSecret = event.platform.env.GOOGLE_CLIENT_SECRET;
+  const clientId = event.platform.env.AUTH_GOOGLE_ID || event.platform.env.GOOGLE_CLIENT_ID;
+  const clientSecret = event.platform.env.AUTH_GOOGLE_SECRET || event.platform.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = `${event.url.origin}/auth/google/callback`;
   
   if (!clientId || !clientSecret) {

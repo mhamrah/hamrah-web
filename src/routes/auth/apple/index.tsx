@@ -21,7 +21,11 @@ export const onGet: RequestHandler = async (event) => {
 
     throw event.redirect(302, url.toString());
   } catch (error) {
-    console.error("Apple OAuth initialization error:", error);
+    // Don't catch RedirectMessage - it's the expected behavior
+    if (error.constructor.name === 'RedirectMessage') {
+      throw error;
+    }
+    
     throw event.redirect(302, "/auth/login?error=oauth_init_failed");
   }
 };

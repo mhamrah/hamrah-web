@@ -4,6 +4,10 @@ import { getGoogleProvider } from "~/lib/auth/providers";
 
 export const onGet: RequestHandler = async (event) => {
   try {
+    // Clear any existing OAuth cookies to prevent state conflicts
+    event.cookie.delete("google_oauth_state");
+    event.cookie.delete("google_oauth_code_verifier");
+    
     const google = getGoogleProvider(event);
     const state = generateState();
     const codeVerifier = generateCodeVerifier();
@@ -29,7 +33,11 @@ export const onGet: RequestHandler = async (event) => {
 
     throw event.redirect(302, url.toString());
   } catch (error) {
-    console.error("Google OAuth initialization error:", error);
+    // Don't catch RedirectMessage - it's the expected behavior
+    if (error.constructor.name === 'RedirectMessage') {
+      throw error;
+    }
+    
     throw event.redirect(302, "/auth/login?error=oauth_init_failed");
   }
 };
