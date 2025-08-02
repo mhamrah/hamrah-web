@@ -28,7 +28,6 @@
     "qwik": "qwik"
   },
   "devDependencies": {
-    "@auth/qwik": "0.5.4",
     "@builder.io/qwik": "^1.13.0",
     "@builder.io/qwik-city": "^1.13.0",
     "@cloudflare/workers-types": "^4.20250430.0",
@@ -64,7 +63,6 @@
   },
   "nx": {},
   "dependencies": {
-    "@auth/d1-adapter": "1.9.1",
     "drizzle-orm": "0.43.1"
   }
 }
