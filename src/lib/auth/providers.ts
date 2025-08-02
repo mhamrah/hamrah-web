@@ -24,7 +24,16 @@ export function getAppleProvider(event: any) {
   }
 
   // Convert PEM string to Uint8Array as required by Arctic
-  const privateKeyUint8Array = new TextEncoder().encode(certificate);
+  // Remove PEM headers and decode base64 content
+  const privateKeyBase64 = certificate
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replaceAll("\r", "")
+    .replaceAll("\n", "")
+    .trim();
+  
+  // Decode base64 to Uint8Array
+  const privateKeyUint8Array = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
 
   return new Apple(clientId, teamId, keyId, privateKeyUint8Array, redirectUri);
 }
