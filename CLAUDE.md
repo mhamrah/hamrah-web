@@ -83,6 +83,52 @@ pnpm dlx drizzle-kit generate
 - `adapters/cloudflare-pages/` - Cloudflare Pages adapter configuration
 - `public/` - Static assets
 
+## Development Guidelines and Best Practices
+
+### Qwik Development Standards
+
+- **Always prefer functional components** in all `.ts` and `.tsx` files
+- **Use TypeScript** for all `.ts` and `.tsx` files to ensure type safety and improved code maintainability
+- **Use `$` suffix** for lazy-loaded functions (e.g., `onClick$`, `onSubmit$`)
+- **Utilize `useSignal()`** for reactive state management
+- **Use `server$`** for server-side code execution within Qwik components
+- **Utilize Qwik City** for routing when applicable (in `src/routes/` directory)
+- **Follow Qwik naming conventions** consistently throughout the codebase
+
+### Tailwind CSS Standards
+
+- **Implement Tailwind CSS classes** for styling instead of custom CSS when possible
+- **Use `@apply` directive** in CSS files for reusable styles
+- **Use Tailwind's `@layer` directive** for custom styles to maintain organization and prevent conflicts
+- **Implement responsive design** using Tailwind's responsive classes (`sm:`, `md:`, `lg:`, etc.)
+- **Follow Tailwind naming conventions** consistently
+- **Implement dark mode** using Tailwind's `dark:` variant for user-friendly experience
+- **Implement proper Tailwind CSS purging** for production builds to reduce bundle size
+
+### Project Structure Standards
+
+Follow this recommended folder structure:
+
+```
+src/
+  components/     # Reusable components
+  routes/        # Page routes and layouts
+  global.css     # Global styles
+  root.tsx       # Root component
+  entry.ssr.tsx  # SSR entry point
+public/          # Static assets
+tailwind.config.js
+postcss.config.js
+vite.config.ts
+tsconfig.json
+```
+
+### Build and Development Standards
+
+- **Leverage Vite plugins** for optimized Qwik builds to improve performance and efficiency
+- **Use Vite's fast HMR** for development
+- **Utilize Tailwind's configuration file** for customization
+
 ## Important Notes
 
 - The project uses a pre-commit hook to run linting before commits.

@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "hamrah-app",
 	"main": "./dist/_worker.js",
-	"compatibility_date": "2025-04-26",
+	"compatibility_date": "2025-08-02",
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
