@@ -133,6 +133,7 @@ tsconfig.json
 
 - **Always create a PR from a branch. Never merge to main directly.**
 - **Create a succinct commit message for the PR and outline the change in the description.**
+- **Always operate on a new branch and create a PR. Never commit code directly to the main branch.**
 
 ## Important Notes
 
