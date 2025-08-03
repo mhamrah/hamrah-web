@@ -76,11 +76,15 @@ export const onGet: RequestHandler = async (event) => {
     let userId: string;
 
     if (existingUser.length > 0) {
-      // Just update the timestamp - profile data will be fetched fresh from ID token
+      // Update user profile data from Google ID token
       userId = existingUser[0].id;
       await db
         .update(users)
         .set({
+          name: googleUser.name || googleUser.email.split("@")[0],
+          email: googleUser.email,
+          picture: googleUser.picture,
+          providerId: googleUser.sub, // Update in case Google ID changed
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
@@ -91,7 +95,7 @@ export const onGet: RequestHandler = async (event) => {
         id: userId,
         email: googleUser.email,
         name: googleUser.name || googleUser.email.split("@")[0], // Fallback display name
-        picture: null, // Don't store - will be fetched fresh from session
+        picture: googleUser.picture,
         provider: "google",
         providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
         createdAt: new Date(),

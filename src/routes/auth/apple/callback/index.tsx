@@ -47,11 +47,14 @@ export const onPost: RequestHandler = async (event) => {
     let userId: string;
 
     if (existingUser.length > 0) {
-      // Just update timestamp - profile data would come from ID token if needed
+      // Update user profile data from Apple ID token
       userId = existingUser[0].id;
       await db
         .update(users)
         .set({
+          name: idTokenPayload.name || idTokenPayload.email.split("@")[0],
+          email: idTokenPayload.email,
+          providerId: idTokenPayload.sub, // Update in case Apple ID changed
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
