@@ -5,8 +5,8 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   picture: text("picture"),
-  provider: text("provider").notNull(), // 'google' or 'apple'
-  providerId: text("provider_id").notNull(),
+  provider: text("provider"), // 'google', 'apple', or null for passkey-only users
+  providerId: text("provider_id"), // Can be null for passkey-only users
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -20,7 +20,40 @@ export const sessions = sqliteTable("sessions", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+// WebAuthn credentials table
+export const webauthnCredentials = sqliteTable("webauthn_credentials", {
+  id: text("id").primaryKey(), // credential ID (base64url encoded)
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  publicKey: text("public_key").notNull(), // stored as base64url
+  counter: integer("counter").notNull().default(0),
+  transports: text("transports"), // JSON array of transport methods
+  aaguid: text("aaguid"), // Authenticator AAGUID
+  credentialType: text("credential_type").notNull().default("public-key"),
+  userVerified: integer("user_verified", { mode: "boolean" }).notNull().default(false),
+  credentialDeviceType: text("credential_device_type"), // 'singleDevice' | 'multiDevice'
+  credentialBackedUp: integer("credential_backed_up", { mode: "boolean" }).notNull().default(false),
+  name: text("name"), // User-friendly name for the credential
+  lastUsed: integer("last_used", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+// Challenge storage for WebAuthn flows
+export const webauthnChallenges = sqliteTable("webauthn_challenges", {
+  id: text("id").primaryKey(),
+  challenge: text("challenge").notNull(),
+  userId: text("user_id"), // null for registration challenges before user exists
+  type: text("type").notNull(), // 'registration' | 'authentication'
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
+export type NewWebAuthnCredential = typeof webauthnCredentials.$inferInsert;
+export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
+export type NewWebAuthnChallenge = typeof webauthnChallenges.$inferInsert;
