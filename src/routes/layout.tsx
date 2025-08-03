@@ -23,10 +23,12 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
   // https://qwik.dev/docs/caching/
   cacheControl({
-    // Shorter cache for auth-protected pages to prevent stale redirects
-    staleWhileRevalidate: 60 * 10, // 10 minutes instead of 7 days
-    // Revalidate more frequently to ensure auth state is current
-    maxAge: 30, // 30 seconds instead of 5
+    // Disable caching for auth-protected pages to prevent stale authentication state
+    // This ensures that after logout, the page will always check current auth status
+    staleWhileRevalidate: 0,
+    maxAge: 0,
+    // Set no-cache headers to prevent browser caching of auth state
+    public: false,
   });
 };
 
