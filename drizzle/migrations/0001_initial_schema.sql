@@ -1,8 +1,8 @@
--- Migration: Add WebAuthn tables
+-- Migration: Initial schema for fresh application
 -- Created: 2025-08-03
 
--- Create new users table with nullable provider fields
-CREATE TABLE IF NOT EXISTS "users_new" (
+-- Users table with support for OAuth providers and WebAuthn-only users
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" text PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"name" text NOT NULL,
@@ -13,15 +13,16 @@ CREATE TABLE IF NOT EXISTS "users_new" (
 	"updated_at" integer NOT NULL
 );
 
--- Copy data from old table
-INSERT INTO "users_new" SELECT * FROM "users";
-
--- Drop old table and rename new one
-DROP TABLE "users";
-ALTER TABLE "users_new" RENAME TO "users";
-
--- Recreate the unique index
 CREATE UNIQUE INDEX IF NOT EXISTS "users_email_unique" ON "users" ("email");
+
+-- Sessions table for user authentication sessions
+CREATE TABLE IF NOT EXISTS "sessions" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"expires_at" integer NOT NULL,
+	"created_at" integer NOT NULL,
+	FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE
+);
 
 -- WebAuthn credentials table
 CREATE TABLE IF NOT EXISTS "webauthn_credentials" (
