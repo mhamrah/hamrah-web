@@ -32,7 +32,6 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
     public: false,
     noCache: true,
     noStore: true,
-    noTransform: true,
   });
 };
 
