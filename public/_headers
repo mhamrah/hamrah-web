@@ -3,6 +3,7 @@
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+  Hamrah: Foo
   # Security Headers for WebAuthn Support
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -11,3 +12,4 @@
   Permissions-Policy: publickey-credentials-get=*, publickey-credentials-create=*
   # CSP allowing WebAuthn operations
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
+  Vary: Cookie
