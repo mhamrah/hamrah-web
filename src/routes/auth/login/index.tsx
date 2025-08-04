@@ -5,6 +5,7 @@ import { UnifiedAuth } from "~/components/auth/unified-auth";
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Prevent caching of login page to ensure users see current auth state
   cacheControl({
+    staleWhileRevalidate: 0,
     noCache: true,
     maxAge: 0,
   });
@@ -12,26 +13,26 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
 
 export default component$(() => {
   const handleAuthSuccess = $((user: any) => {
-    console.log('Authentication successful:', user);
+    console.log("Authentication successful:", user);
   });
 
   const handleAuthError = $((error: string) => {
-    console.error('Authentication failed:', error);
+    console.error("Authentication failed:", error);
   });
 
   // Get redirect URL from query params
   const getRedirectUrl = () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      return url.searchParams.get('redirect') || '/';
+      return url.searchParams.get("redirect") || "/";
     }
-    return '/';
+    return "/";
   };
 
   return (
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-md w-full space-y-8">
-        <UnifiedAuth 
+    <div class="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <div class="w-full max-w-md space-y-8">
+        <UnifiedAuth
           onSuccess={handleAuthSuccess}
           onError={handleAuthError}
           redirectUrl={getRedirectUrl()}

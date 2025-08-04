@@ -30,6 +30,9 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
     maxAge: 0,
     // Set no-cache headers to prevent browser caching of auth state
     public: false,
+    noCache: true,
+    noStore: true,
+    noTransform: true,
   });
 };
 
