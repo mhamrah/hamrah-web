@@ -1,8 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { eq } from "drizzle-orm";
 import { getAppleProvider } from "~/lib/auth/providers";
-import { getDB, users } from "~/lib/db";
-import { generateUserId } from "~/lib/auth/utils";
+import { findOrCreateUser } from "~/lib/auth/user-service";
 import {
   generateSessionToken,
   createSession,
@@ -35,40 +33,14 @@ export const onPost: RequestHandler = async (event) => {
   const idTokenPayload = JSON.parse(atob(tokens.idToken().split(".")[1]));
 
   try {
-    const db = getDB(event);
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, idTokenPayload.email))
-      .limit(1);
-
-    let userId: string;
-
-    if (existingUser.length > 0) {
-      // Just update timestamp - profile data would come from ID token if needed
-      userId = existingUser[0].id;
-      await db
-        .update(users)
-        .set({
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
-    } else {
-      // Create new user - minimal essential data only
-      userId = generateUserId();
-      await db.insert(users).values({
-        id: userId,
-        email: idTokenPayload.email,
-        name: idTokenPayload.name || idTokenPayload.email.split("@")[0], // Fallback display name
-        picture: null, // Apple doesn't provide profile pictures
-        provider: "apple",
-        providerId: idTokenPayload.sub,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
+    // Find or create user using common service
+    const userId = await findOrCreateUser(event, {
+      email: idTokenPayload.email,
+      name: idTokenPayload.name,
+      picture: null, // Apple doesn't provide profile pictures
+      provider: "apple",
+      providerId: idTokenPayload.sub,
+    });
 
     // Create session
     const sessionToken = generateSessionToken();
