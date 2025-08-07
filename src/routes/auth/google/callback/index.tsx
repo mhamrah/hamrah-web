@@ -1,8 +1,6 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { eq } from "drizzle-orm";
 import { getGoogleProvider } from "~/lib/auth/providers";
-import { getDB, users } from "~/lib/db";
-import { generateUserId } from "~/lib/auth/utils";
+import { findOrCreateUser } from "~/lib/auth/user-service";
 import {
   generateSessionToken,
   createSession,
@@ -64,40 +62,14 @@ export const onGet: RequestHandler = async (event) => {
   // - at_hash: Access token hash
 
   try {
-    const db = getDB(event);
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, googleUser.email))
-      .limit(1);
-
-    let userId: string;
-
-    if (existingUser.length > 0) {
-      // Just update the timestamp - profile data will be fetched fresh from ID token
-      userId = existingUser[0].id;
-      await db
-        .update(users)
-        .set({
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId));
-    } else {
-      // Create new user - only store essential data, profile data comes from ID token
-      userId = generateUserId();
-      await db.insert(users).values({
-        id: userId,
-        email: googleUser.email,
-        name: googleUser.name || googleUser.email.split("@")[0], // Fallback display name
-        picture: null, // Don't store - will be fetched fresh from session
-        provider: "google",
-        providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
+    // Find or create user using common service
+    const userId = await findOrCreateUser(event, {
+      email: googleUser.email,
+      name: googleUser.name,
+      picture: null, // Don't store - will be fetched fresh from session
+      provider: "google",
+      providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
+    });
     // Create session
     const sessionToken = generateSessionToken();
     const session = await createSession(event, sessionToken, userId);
