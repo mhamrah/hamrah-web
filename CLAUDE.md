@@ -95,6 +95,10 @@ pnpm dlx drizzle-kit generate
 - **Utilize Qwik City** for routing when applicable (in `src/routes/` directory)
 - **Follow Qwik naming conventions** consistently throughout the codebase
 
+### Database and Architecture Standards
+
+- **Never mix database access code with qwik api functions in the same file. Always put db code in a separate database layer project space with methods which are called from the web layer**
+
 ### Tailwind CSS Standards
 
 - **Implement Tailwind CSS classes** for styling instead of custom CSS when possible
