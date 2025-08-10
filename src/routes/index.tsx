@@ -93,6 +93,8 @@ export default component$(() => {
                     <img
                       src={user.value.picture}
                       alt={user.value.name}
+                      width="48"
+                      height="48"
                       class="h-12 w-12 rounded-full"
                     />
                   </dd>

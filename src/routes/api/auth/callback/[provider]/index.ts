@@ -118,6 +118,7 @@ export const onPost: RequestHandler = async (event) => {
   
   const { code, code_verifier, state, platform } = body;
   
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!code || !code_verifier || !state || !platform) {
     throw event.error(400, "Missing required parameters");
   }

@@ -49,6 +49,7 @@ export async function authenticateRequest(
   
   // Fallback to session-based authentication
   const sessionAuth = await trySessionAuth(event, allowExpired);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (sessionAuth?.user && sessionAuth?.session) {
     return {
       user: sessionAuth.user,
@@ -98,7 +99,7 @@ export function optionalAuth(options: AuthMiddlewareOptions = {}) {
  * Convenience function to get user from authenticated request
  */
 export function getAuthenticatedUser(event: RequestEventCommon): User {
-  const auth = (event as any).auth as AuthenticationResult;
+  const auth = (event as any).auth as AuthenticationResult | undefined;
   if (!auth) {
     throw event.error(401, "Authentication required");
   }
@@ -170,6 +171,7 @@ async function trySessionAuth(
   try {
     const result = await validateSessionToken(event, sessionToken);
     
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (result?.session && result?.user) {
       return result;
     }
@@ -227,7 +229,7 @@ export function isAuthenticated(event: RequestEventCommon): boolean {
  * Get authentication method used for current request
  */
 export function getAuthMethod(event: RequestEventCommon): "token" | "session" | null {
-  const auth = (event as any).auth as AuthenticationResult;
+  const auth = (event as any).auth as AuthenticationResult | undefined;
   return auth ? auth.method : null;
 }
 
@@ -235,6 +237,6 @@ export function getAuthMethod(event: RequestEventCommon): "token" | "session" | 
  * Check if authentication needs refresh
  */
 export function needsRefresh(event: RequestEventCommon): boolean {
-  const auth = (event as any).auth as AuthenticationResult;
+  const auth = (event as any).auth as AuthenticationResult | undefined;
   return auth ? auth.needsRefresh || false : false;
 }

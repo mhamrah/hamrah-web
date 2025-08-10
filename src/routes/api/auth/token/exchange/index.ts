@@ -50,6 +50,7 @@ export const onPost: RequestHandler = async (event) => {
     throw event.error(400, "Missing session_token");
   }
   
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!platform) {
     throw event.error(400, "Missing platform");
   }
@@ -62,6 +63,7 @@ export const onPost: RequestHandler = async (event) => {
     // Validate the session token
     const sessionResult = await validateSessionToken(event, session_token);
     
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!sessionResult?.session || !sessionResult?.user) {
       throw event.error(401, "Invalid or expired session");
     }

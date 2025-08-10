@@ -41,6 +41,7 @@ export const onPost: RequestHandler = async (event) => {
     throw event.error(400, "Invalid JSON body");
   }
   
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!body.platform) {
     throw event.error(400, "Missing platform");
   }
