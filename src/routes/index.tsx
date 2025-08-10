@@ -46,20 +46,71 @@ export default component$(() => {
                 </p>
                 <p class="text-sm text-gray-600">{user.value.email}</p>
                 <p class="mt-1 text-xs text-gray-500">
+                  User ID: {user.value.id}
+                </p>
+                <p class="text-xs text-gray-500">
                   {user.value.provider 
                     ? `Signed in with ${user.value.provider === "google" ? "Google" : "Apple"}` 
                     : "Signed in with Passkey"
                   }
                 </p>
+                {user.value.providerId && (
+                  <p class="text-xs text-gray-500">
+                    Provider ID: {user.value.providerId}
+                  </p>
+                )}
               </div>
             </div>
           </div>
 
           <div class="mt-8 border-t pt-6">
-            <p class="text-muted-foreground">
-              You're successfully authenticated! This is your protected
-              dashboard.
-            </p>
+            <h3 class="mb-4 text-lg font-semibold text-gray-900">User Details</h3>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div class="rounded-lg bg-gray-50 p-4">
+                <dt class="text-sm font-medium text-gray-500">User ID</dt>
+                <dd class="mt-1 text-sm text-gray-900 font-mono break-all">{user.value.id}</dd>
+              </div>
+              <div class="rounded-lg bg-gray-50 p-4">
+                <dt class="text-sm font-medium text-gray-500">Email</dt>
+                <dd class="mt-1 text-sm text-gray-900">{user.value.email}</dd>
+              </div>
+              <div class="rounded-lg bg-gray-50 p-4">
+                <dt class="text-sm font-medium text-gray-500">Provider</dt>
+                <dd class="mt-1 text-sm text-gray-900 capitalize">
+                  {user.value.provider || "Passkey"}
+                </dd>
+              </div>
+              {user.value.providerId && (
+                <div class="rounded-lg bg-gray-50 p-4">
+                  <dt class="text-sm font-medium text-gray-500">Provider ID</dt>
+                  <dd class="mt-1 text-sm text-gray-900 font-mono break-all">{user.value.providerId}</dd>
+                </div>
+              )}
+              {user.value.picture && (
+                <div class="rounded-lg bg-gray-50 p-4">
+                  <dt class="text-sm font-medium text-gray-500">Profile Picture</dt>
+                  <dd class="mt-2">
+                    <img
+                      src={user.value.picture}
+                      alt={user.value.name}
+                      class="h-12 w-12 rounded-full"
+                    />
+                  </dd>
+                </div>
+              )}
+              <div class="rounded-lg bg-gray-50 p-4">
+                <dt class="text-sm font-medium text-gray-500">Account Created</dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                  {new Date(user.value.createdAt).toLocaleDateString()}
+                </dd>
+              </div>
+            </div>
+            
+            <div class="mt-6">
+              <p class="text-sm text-gray-600">
+                You're successfully authenticated! This is your protected dashboard.
+              </p>
+            </div>
           </div>
         </div>
       </div>
