@@ -116,7 +116,7 @@ export const onPost: RequestHandler = async (event) => {
     throw event.error(400, "Invalid JSON body");
   }
   
-  const { code, code_verifier, state, platform, redirect_uri } = body;
+  const { code, code_verifier, state, platform } = body;
   
   if (!code || !code_verifier || !state || !platform) {
     throw event.error(400, "Missing required parameters");
@@ -127,7 +127,7 @@ export const onPost: RequestHandler = async (event) => {
   }
   
   try {
-    const userProfile = await exchangeCodeForProfile(event, provider, code, code_verifier, redirect_uri);
+    const userProfile = await exchangeCodeForProfile(event, provider, code, code_verifier);
     
     // Find or create user
     const userId = await findOrCreateUser(event, userProfile);

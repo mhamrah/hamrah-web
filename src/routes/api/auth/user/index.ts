@@ -59,7 +59,7 @@ export const onGet: RequestHandler = async (event) => {
     if (sessionToken) {
       try {
         const sessionResult = await validateSessionToken(event, sessionToken);
-        if (sessionResult.session && sessionResult.user) {
+        if (sessionResult?.session && sessionResult?.user) {
           user = sessionResult.user;
           authMethod = "session";
           expiresAt = sessionResult.session.expiresAt;

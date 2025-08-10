@@ -50,15 +50,19 @@ export const onPost: RequestHandler = async (event) => {
     throw event.error(400, "Missing session_token");
   }
   
-  if (!platform || !["ios", "android", "api"].includes(platform)) {
-    throw event.error(400, "Invalid or missing platform");
+  if (!platform) {
+    throw event.error(400, "Missing platform");
+  }
+  
+  if (!["ios", "android", "api"].includes(platform)) {
+    throw event.error(400, "Invalid platform");
   }
   
   try {
     // Validate the session token
     const sessionResult = await validateSessionToken(event, session_token);
     
-    if (!sessionResult.session || !sessionResult.user) {
+    if (!sessionResult?.session || !sessionResult?.user) {
       throw event.error(401, "Invalid or expired session");
     }
     

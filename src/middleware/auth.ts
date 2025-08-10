@@ -49,7 +49,7 @@ export async function authenticateRequest(
   
   // Fallback to session-based authentication
   const sessionAuth = await trySessionAuth(event, allowExpired);
-  if (sessionAuth && sessionAuth.user && sessionAuth.session) {
+  if (sessionAuth?.user && sessionAuth?.session) {
     return {
       user: sessionAuth.user,
       method: "session",
@@ -102,6 +102,8 @@ export function getAuthenticatedUser(event: RequestEventCommon): User {
   if (!auth) {
     throw event.error(401, "Authentication required");
   }
+  // TypeScript doesn't know auth is non-null after the check
+   
   return auth.user;
 }
 
@@ -168,7 +170,7 @@ async function trySessionAuth(
   try {
     const result = await validateSessionToken(event, sessionToken);
     
-    if (result.session && result.user) {
+    if (result?.session && result?.user) {
       return result;
     }
     
@@ -217,7 +219,8 @@ function shouldRefresh(expiresAt: Date | undefined, threshold: number): boolean 
  * Type guard to check if request is authenticated
  */
 export function isAuthenticated(event: RequestEventCommon): boolean {
-  return !!(event as any).auth;
+  const auth = (event as any).auth as AuthenticationResult;
+  return !!auth;
 }
 
 /**
@@ -225,7 +228,7 @@ export function isAuthenticated(event: RequestEventCommon): boolean {
  */
 export function getAuthMethod(event: RequestEventCommon): "token" | "session" | null {
   const auth = (event as any).auth as AuthenticationResult;
-  return auth?.method || null;
+  return auth ? auth.method : null;
 }
 
 /**
@@ -233,5 +236,5 @@ export function getAuthMethod(event: RequestEventCommon): "token" | "session" | 
  */
 export function needsRefresh(event: RequestEventCommon): boolean {
   const auth = (event as any).auth as AuthenticationResult;
-  return auth?.needsRefresh || false;
+  return auth ? auth.needsRefresh || false : false;
 }

@@ -95,7 +95,7 @@ export const onPost: RequestHandler = async (event) => {
     if (sessionToInvalidate) {
       const sessionResult = await validateSessionToken(event, sessionToInvalidate);
       
-      if (sessionResult.session && sessionResult.user) {
+      if (sessionResult?.session && sessionResult?.user) {
         if (!userId) {
           userId = sessionResult.user.id;
         }

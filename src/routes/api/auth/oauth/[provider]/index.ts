@@ -41,8 +41,12 @@ export const onPost: RequestHandler = async (event) => {
     throw event.error(400, "Invalid JSON body");
   }
   
-  if (!body.platform || !["web", "ios", "android", "api"].includes(body.platform)) {
-    throw event.error(400, "Invalid or missing platform");
+  if (!body.platform) {
+    throw event.error(400, "Missing platform");
+  }
+  
+  if (!["web", "ios", "android", "api"].includes(body.platform)) {
+    throw event.error(400, "Invalid platform");
   }
   
   const { platform, redirect_uri, state: customState } = body;
