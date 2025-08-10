@@ -148,6 +148,8 @@ const completePasskeyAuth = server$(async function(
           picture: null,
           provider: null, // Passkey-only user
           providerId: null,
+          lastLoginPlatform: null,
+          lastLoginAt: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
