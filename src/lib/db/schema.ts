@@ -7,6 +7,8 @@ export const users = sqliteTable("users", {
   picture: text("picture"),
   provider: text("provider"), // 'google', 'apple', or null for passkey-only users
   providerId: text("provider_id"), // Can be null for passkey-only users
+  lastLoginPlatform: text("last_login_platform"), // 'web', 'ios', 'android', 'api'
+  lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -49,10 +51,30 @@ export const webauthnChallenges = sqliteTable("webauthn_challenges", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+// Auth tokens table for mobile/API authentication
+export const authTokens = sqliteTable("auth_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  refreshTokenHash: text("refresh_token_hash").notNull(),
+  accessExpiresAt: integer("access_expires_at", { mode: "timestamp" }).notNull(),
+  refreshExpiresAt: integer("refresh_expires_at", { mode: "timestamp" }).notNull(),
+  platform: text("platform").notNull(), // 'web', 'ios', 'android', 'api'
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
+  lastUsed: integer("last_used", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type AuthToken = typeof authTokens.$inferSelect;
+export type NewAuthToken = typeof authTokens.$inferInsert;
 export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
 export type NewWebAuthnCredential = typeof webauthnCredentials.$inferInsert;
 export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;

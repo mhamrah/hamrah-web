@@ -22,7 +22,6 @@ export const onRequest: RequestHandler = async (event) => {
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Control caching for this request for best performance and to reduce hosting costs:
   // https://qwik.dev/docs/caching/
-  console.log("getting in layout");
   cacheControl({
     // Disable caching for auth-protected pages to prevent stale authentication state
     // This ensures that after logout, the page will always check current auth status
