@@ -7,6 +7,14 @@ declare namespace Cloudflare {
 		AUTH_GOOGLE_SECRET: string;
 		AUTH_SECRET: string;
 		DB: D1Database;
+		KV: KVNamespace;
+		NODE_ENV?: string;
+		GOOGLE_CLIENT_ID: string;
+		GOOGLE_CLIENT_SECRET: string;
+		APPLE_CLIENT_ID: string;
+		APPLE_TEAM_ID: string;
+		APPLE_KEY_ID: string;
+		APPLE_CERTIFICATE: string;
 		ASSET: Fetcher;
 	}
 }

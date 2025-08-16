@@ -69,6 +69,25 @@ export const authTokens = sqliteTable("auth_tokens", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
+// OAuth clients table for OIDC provider
+export const oauthClients = sqliteTable('oauth_clients', {
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull().unique(),
+  clientSecret: text('client_secret'), // Null for public clients
+  clientName: text('client_name').notNull(),
+  applicationType: text('application_type').notNull(), // 'native' | 'web'
+  redirectUris: text('redirect_uris').notNull(), // JSON array
+  grantTypes: text('grant_types').notNull(), // JSON array
+  responseTypes: text('response_types').notNull(), // JSON array
+  tokenEndpointAuthMethod: text('token_endpoint_auth_method').notNull(),
+  scopes: text('scopes').notNull(), // JSON array
+  requireAuthTime: integer('require_auth_time', { mode: 'boolean' }).default(false),
+  defaultMaxAge: integer('default_max_age'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
@@ -79,3 +98,5 @@ export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
 export type NewWebAuthnCredential = typeof webauthnCredentials.$inferInsert;
 export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
 export type NewWebAuthnChallenge = typeof webauthnChallenges.$inferInsert;
+export type OAuthClient = typeof oauthClients.$inferSelect;
+export type NewOAuthClient = typeof oauthClients.$inferInsert;
