@@ -150,7 +150,7 @@ async function generateAccessToken(user: any, clientId: string, event: any): Pro
   // Generate a key pair for signing (in production, use stored keys)
   const { privateKey } = await generateKeyPair('RS256');
   
-  const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
+  const issuer = `${event.url.protocol}//${event.url.host}`;
   const now = Math.floor(Date.now() / 1000);
   
   return await new SignJWT({
@@ -176,7 +176,7 @@ async function generateIdToken(user: any, clientId: string, event: any): Promise
   // Generate a key pair for signing (in production, use stored keys)
   const { privateKey } = await generateKeyPair('RS256');
   
-  const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
+  const issuer = `${event.url.protocol}//${event.url.host}`;
   const now = Math.floor(Date.now() / 1000);
   
   return await new SignJWT({

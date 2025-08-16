@@ -48,8 +48,8 @@ export async function validateJWTToken(
 ): Promise<TokenValidationResult> {
   try {
     // Get issuer URL
-    const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
-    const jwksUri = getJWKSUri(issuer);
+    const issuer = `${event.url.protocol}//${event.url.host}`;
+    const jwksUri = `${issuer}/oidc/jwks`;
     
     // Create remote JWKS for token verification
     const JWKS = createRemoteJWKSet(new URL(jwksUri));

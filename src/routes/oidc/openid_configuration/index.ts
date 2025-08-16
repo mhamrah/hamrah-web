@@ -4,20 +4,20 @@ import type { RequestHandler } from '@builder.io/qwik-city';
  * OpenID Connect Discovery Document
  * https://openid.net/specs/openid-connect-discovery-1_0.html
  * 
- * Accessible at: /oidc/openid_configuration
- * Note: In production, you should set up a redirect from /.well-known/openid_configuration
+ * Alternative endpoint at: /oidc/openid_configuration
+ * Primary endpoint is at: /.well-known/openid_configuration
  */
 export const onGet: RequestHandler = async (event) => {
-  const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
+  const issuer = `${event.url.protocol}//${event.url.host}`;
   
   const discoveryDocument = {
     issuer,
-    authorization_endpoint: `${issuer}/auth`,
-    token_endpoint: `${issuer}/token`,
-    userinfo_endpoint: `${issuer}/userinfo`,
-    jwks_uri: `${issuer}/jwks`,
-    revocation_endpoint: `${issuer}/revocation`,
-    introspection_endpoint: `${issuer}/introspection`,
+    authorization_endpoint: `${issuer}/oidc/auth`,
+    token_endpoint: `${issuer}/oidc/token`,
+    userinfo_endpoint: `${issuer}/oidc/userinfo`,
+    jwks_uri: `${issuer}/oidc/jwks`,
+    revocation_endpoint: `${issuer}/oidc/revocation`,
+    introspection_endpoint: `${issuer}/oidc/introspection`,
     
     // Supported response types
     response_types_supported: [
@@ -75,9 +75,9 @@ export const onGet: RequestHandler = async (event) => {
     require_request_uri_registration: false,
     
     // Service documentation
-    service_documentation: `${issuer}/docs`,
-    op_policy_uri: `${issuer}/policy`,
-    op_tos_uri: `${issuer}/terms`,
+    service_documentation: `${issuer}/oidc/docs`,
+    op_policy_uri: `${issuer}/oidc/policy`,
+    op_tos_uri: `${issuer}/oidc/terms`,
   };
 
   event.json(200, discoveryDocument);

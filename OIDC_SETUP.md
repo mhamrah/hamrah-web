@@ -73,13 +73,17 @@ pnpm deploy
 
 ### Test Discovery Endpoint
 ```bash
-curl https://your-domain.com/oidc/.well-known/openid_configuration
+# Primary OIDC discovery endpoint
+curl https://your-domain.com/.well-known/openid_configuration
+
+# Alternative endpoint (directly accessible)
+curl https://your-domain.com/oidc/openid_configuration
 ```
 
 Expected response:
 ```json
 {
-  "issuer": "https://your-domain.com/oidc",
+  "issuer": "https://your-domain.com",
   "authorization_endpoint": "https://your-domain.com/oidc/auth",
   "token_endpoint": "https://your-domain.com/oidc/token",
   "userinfo_endpoint": "https://your-domain.com/oidc/userinfo",
@@ -118,7 +122,8 @@ curl -X POST https://your-domain.com/api/v1/oauth/clients/register \
 The following endpoints are now available:
 
 ### Core OIDC Endpoints
-- `GET /.well-known/openid_configuration` - Discovery document
+- `GET /.well-known/openid_configuration` - Discovery document (redirected from Cloudflare)
+- `GET /oidc/openid_configuration` - Discovery document (direct access)
 - `GET /oidc/auth` - Authorization endpoint (redirects to login)
 - `POST /oidc/token` - Token exchange endpoint
 - `GET /oidc/userinfo` - User information endpoint
