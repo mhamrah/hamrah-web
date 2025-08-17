@@ -33,8 +33,7 @@
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "YOUR_KV_NAMESPACE_ID",
-      "preview_id": "YOUR_PREVIEW_KV_NAMESPACE_ID"
+      "id": "534fd54e3f4c48f597bfed99d46debf8",
     },
   ],
   /**
@@ -59,7 +58,7 @@
     "APPLE_CLIENT_ID": "com.hamrah.app.web",
     "APPLE_TEAM_ID": "UR6RM9YCF7",
     "APPLE_KEY_ID": "F39VY8L29Z",
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
   },
   /**
    * Note: Use secrets to store sensitive data.

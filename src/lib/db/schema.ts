@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -86,7 +86,14 @@ export const oauthClients = sqliteTable('oauth_clients', {
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => ({
+  // Index for frequent active client lookups
+  activeClientsIdx: index('oauth_clients_active_idx').on(table.active),
+  // Composite index for active client queries by type
+  activeTypeIdx: index('oauth_clients_active_type_idx').on(table.active, table.applicationType),
+  // Index for client name searches
+  clientNameIdx: index('oauth_clients_name_idx').on(table.clientName),
+}));
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

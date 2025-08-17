@@ -14,7 +14,8 @@ export const onGet: RequestHandler = async (event) => {
     const rateLimit = await checkRateLimit(event, rateLimitConfig);
     
     if (!rateLimit.allowed) {
-      return createRateLimitResponse(rateLimit.resetTime);
+      event.send(createRateLimitResponse(rateLimit.resetTime));
+      return;
     }
 
     // Extract parameters

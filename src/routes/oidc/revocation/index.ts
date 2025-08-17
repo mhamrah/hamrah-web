@@ -56,8 +56,7 @@ export const onPost: RequestHandler = async (event) => {
 
     // According to RFC 7009, the revocation endpoint should return 200 OK
     // even if the token was not found or was already revoked
-    event.status(200);
-    event.send('');
+    event.send(new Response('', { status: 200 }));
 
   } catch (error) {
     console.error('Token revocation error:', error);

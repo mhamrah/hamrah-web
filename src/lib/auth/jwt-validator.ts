@@ -2,6 +2,7 @@ import { jwtVerify, createRemoteJWKSet, type JWTPayload as JoseJWTPayload } from
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 import { getDB, users } from '../db';
 import { eq } from 'drizzle-orm';
+import { getClient } from './client-manager';
 
 export interface CustomJWTPayload extends JoseJWTPayload {
   client_id: string; // OAuth client ID
@@ -54,10 +55,9 @@ export async function validateJWTToken(
     // Create remote JWKS for token verification
     const JWKS = createRemoteJWKSet(new URL(jwksUri));
     
-    // Verify the JWT token
+    // Verify the JWT token without hardcoded audience
     const { payload } = await jwtVerify(token, JWKS, {
       issuer,
-      audience: ['hamrah-ios-app'], // Expected client IDs
       algorithms: ['RS256'],
     });
 
@@ -71,11 +71,12 @@ export async function validateJWTToken(
       };
     }
 
-    // Validate client ID for mobile app
-    if (jwtPayload.client_id !== 'hamrah-ios-app') {
+    // Validate client ID against database
+    const client = await getClient(event, jwtPayload.client_id);
+    if (!client || !client.active) {
       return {
         isValid: false,
-        error: 'Invalid client ID',
+        error: 'Invalid or inactive client ID',
       };
     }
 

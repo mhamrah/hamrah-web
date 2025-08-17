@@ -1,5 +1,5 @@
 import type { RequestHandler } from '@builder.io/qwik-city';
-import { generateJWKS } from '../../../lib/auth/oidc-config';
+import { getPublicJWKS } from '../../../lib/auth/key-manager';
 
 /**
  * JSON Web Key Set (JWKS) endpoint
@@ -7,13 +7,8 @@ import { generateJWKS } from '../../../lib/auth/oidc-config';
  */
 export const onGet: RequestHandler = async (event) => {
   try {
-    // Generate or retrieve JWKS
-    const jwks = await generateJWKS();
-    
-    // Return only the public keys
-    const publicJWKS = {
-      keys: jwks.keys
-    };
+    // Get public JWKS from key manager
+    const publicJWKS = await getPublicJWKS(event);
 
     // Set appropriate headers
     event.headers.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour

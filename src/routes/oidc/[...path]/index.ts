@@ -1,5 +1,5 @@
 import type { RequestHandler } from '@builder.io/qwik-city';
-import { createOIDCProvider } from '../../../lib/auth/oidc-config';
+import { getCachedOIDCProvider } from '../../../lib/auth/provider-cache';
 
 /**
  * OIDC Provider endpoint handler
@@ -17,8 +17,8 @@ export const onRequest: RequestHandler = async (event) => {
     // Get the issuer URL (base URL for OIDC)
     const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
     
-    // Create OIDC provider instance
-    const provider = await createOIDCProvider(issuer, event);
+    // Get cached OIDC provider instance
+    const provider = await getCachedOIDCProvider(issuer, event);
 
     // Handle the OIDC request
     const callback = provider.callback();
@@ -68,11 +68,11 @@ export const onRequest: RequestHandler = async (event) => {
     // Call the OIDC provider with the request and response
     await callback(event.request as any, mockResponse as any);
 
-    // Return the response from OIDC provider
-    return new Response(responseBody, {
+    // Send the response from OIDC provider
+    event.send(new Response(responseBody, {
       status: responseStatus,
       headers: responseHeaders,
-    });
+    }));
 
   } catch (error) {
     console.error('OIDC Provider error:', error);

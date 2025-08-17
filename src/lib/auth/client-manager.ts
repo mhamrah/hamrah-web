@@ -267,19 +267,40 @@ export async function validateRedirectUri(
 }
 
 /**
+ * OIDC Provider client format interface
+ */
+export interface OIDCClientFormat {
+  client_id: string;
+  client_secret: string | null;
+  client_name: string;
+  redirect_uris: string[];
+  grant_types: string[];
+  response_types: string[];
+  token_endpoint_auth_method: string;
+  application_type: string;
+  require_auth_time: boolean;
+  default_max_age: number | null;
+}
+
+/**
  * Convert database client to OIDC provider format
  */
-export function clientToOIDCFormat(client: OAuthClient): any {
-  return {
-    client_id: client.clientId,
-    client_secret: client.clientSecret,
-    client_name: client.clientName,
-    redirect_uris: JSON.parse(client.redirectUris),
-    grant_types: JSON.parse(client.grantTypes),
-    response_types: JSON.parse(client.responseTypes),
-    token_endpoint_auth_method: client.tokenEndpointAuthMethod,
-    application_type: client.applicationType,
-    require_auth_time: client.requireAuthTime,
-    default_max_age: client.defaultMaxAge,
-  };
+export function clientToOIDCFormat(client: OAuthClient): OIDCClientFormat {
+  try {
+    return {
+      client_id: client.clientId,
+      client_secret: client.clientSecret,
+      client_name: client.clientName,
+      redirect_uris: JSON.parse(client.redirectUris) as string[],
+      grant_types: JSON.parse(client.grantTypes) as string[],
+      response_types: JSON.parse(client.responseTypes) as string[],
+      token_endpoint_auth_method: client.tokenEndpointAuthMethod,
+      application_type: client.applicationType,
+      require_auth_time: client.requireAuthTime ?? false,
+      default_max_age: client.defaultMaxAge,
+    };
+  } catch (error) {
+    console.error('Error converting client to OIDC format:', error);
+    throw new Error(`Invalid client data for client ${client.clientId}`);
+  }
 }

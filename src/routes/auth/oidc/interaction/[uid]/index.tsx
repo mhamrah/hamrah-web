@@ -1,7 +1,7 @@
 import { component$ } from '@builder.io/qwik';
 import { routeLoader$, Form, routeAction$ } from '@builder.io/qwik-city';
 import { createOIDCProvider } from '../../../../../lib/auth/oidc-config';
-import { validateAccessToken } from '../../../../../lib/auth/tokens';
+import { validateJWTToken } from '../../../../../lib/auth/jwt-validator';
 
 /**
  * Load interaction details from OIDC provider
@@ -30,7 +30,7 @@ export const useInteractionLoader = routeLoader$(async ({ params, request, platf
         params: interactionDetails.params,
         client: {
           clientId: interactionDetails.params.client_id,
-          clientName: interactionDetails.client?.clientName || 'Hamrah iOS App',
+          clientName: 'Hamrah iOS App',
         },
         grantId: interactionDetails.grantId,
       },
@@ -70,8 +70,8 @@ export const useInteractionAction = routeAction$(async (data, { request, platfor
     let userId: string | null = null;
 
     if (accessToken) {
-      // Validate existing access token
-      const tokenValidation = await validateAccessToken({ 
+      // Validate existing JWT token
+      const tokenValidation = await validateJWTToken({ 
         request, 
         platform, 
         url 
@@ -90,7 +90,7 @@ export const useInteractionAction = routeAction$(async (data, { request, platfor
     // Handle different interaction prompts
     const result: any = {};
 
-    if (interactionDetails.prompt.details.some((detail: any) => detail.prompt === 'login')) {
+    if ((interactionDetails.prompt as any).details?.some((detail: any) => detail.prompt === 'login')) {
       // Login interaction
       result.login = {
         accountId: userId,
@@ -99,9 +99,9 @@ export const useInteractionAction = routeAction$(async (data, { request, platfor
       };
     }
 
-    if (interactionDetails.prompt.details.some((detail: any) => detail.prompt === 'consent')) {
+    if ((interactionDetails.prompt as any).details?.some((detail: any) => detail.prompt === 'consent')) {
       // Consent interaction - auto-approve for mobile app
-      const scopes = interactionDetails.params.scope?.split(' ') || [];
+      const scopes = (interactionDetails.params as any).scope?.split(' ') || [];
       
       result.consent = {
         grantId: interactionDetails.grantId,

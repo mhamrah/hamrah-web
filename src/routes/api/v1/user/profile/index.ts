@@ -1,5 +1,7 @@
 import type { RequestHandler } from '@builder.io/qwik-city';
 import { requireJWTAuth, checkJWTRateLimit } from '../../../../../lib/auth/jwt-validator';
+import { getDB, users } from '../../../../../lib/db';
+import { eq } from 'drizzle-orm';
 
 /**
  * Protected API endpoint - Get user profile
@@ -92,7 +94,7 @@ export const onPatch: RequestHandler = async (event) => {
 
     // Parse request body
     const body = await event.request.json() as { name?: string; picture?: string };
-    const { name } = body;
+    const { name, picture } = body;
 
     // Validate input
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -103,13 +105,48 @@ export const onPatch: RequestHandler = async (event) => {
       return;
     }
 
-    // TODO: Update user in database
-    // This would integrate with your existing user service
-    // const updatedUser = await updateUser(authResult.user.id, { name, picture });
+    if (picture && (typeof picture !== 'string' || picture.trim().length === 0)) {
+      event.json(400, {
+        error: 'invalid_request',
+        error_description: 'Picture must be a valid URL string',
+      });
+      return;
+    }
+
+    // Update user in database
+    const db = getDB(event);
+    const updateData: { name: string; picture?: string; updatedAt: Date } = {
+      name: name.trim(),
+      updatedAt: new Date(),
+    };
+
+    if (picture) {
+      updateData.picture = picture.trim();
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updateData)
+      .where(eq(users.id, authResult.user.id))
+      .returning();
+
+    if (!updatedUser) {
+      event.json(404, {
+        error: 'user_not_found',
+        error_description: 'User not found',
+      });
+      return;
+    }
 
     event.json(200, {
       message: 'Profile updated successfully',
-      // updatedUser,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        picture: updatedUser.picture,
+        updatedAt: updatedUser.updatedAt,
+      },
     });
 
   } catch (error) {
