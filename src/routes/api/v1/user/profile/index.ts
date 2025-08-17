@@ -35,7 +35,7 @@ export const onGet: RequestHandler = async (event) => {
     const { user, payload } = authResult;
 
     // Return user profile data
-    const profileData = {
+    const profileData: any = {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -43,14 +43,17 @@ export const onGet: RequestHandler = async (event) => {
       provider: user.provider,
       lastLoginAt: user.lastLoginAt,
       lastLoginPlatform: user.lastLoginPlatform,
-      // Include token info for debugging (remove in production)
-      tokenInfo: {
+    };
+
+    // Include token info for debugging only in development
+    if (process.env.NODE_ENV !== 'production') {
+      profileData.tokenInfo = {
         clientId: payload?.client_id,
         scopes: authResult.scopes,
         issuedAt: payload?.iat,
         expiresAt: payload?.exp,
-      },
-    };
+      };
+    }
 
     event.json(200, profileData);
 

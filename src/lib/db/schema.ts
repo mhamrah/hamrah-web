@@ -67,7 +67,16 @@ export const authTokens = sqliteTable("auth_tokens", {
   revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
   lastUsed: integer("last_used", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+}, (table) => ({
+  // Composite index for token lookup queries
+  userTokensIdx: index('auth_tokens_user_revoked_expires_idx').on(table.userId, table.revoked, table.accessExpiresAt),
+  // Index for cleanup queries
+  expirationIdx: index('auth_tokens_expiration_idx').on(table.accessExpiresAt),
+  // Index for refresh token queries
+  refreshExpirationIdx: index('auth_tokens_refresh_expiration_idx').on(table.refreshExpiresAt),
+  // Index for user platform queries
+  userPlatformIdx: index('auth_tokens_user_platform_idx').on(table.userId, table.platform),
+}));
 
 // OAuth clients table for OIDC provider
 export const oauthClients = sqliteTable('oauth_clients', {

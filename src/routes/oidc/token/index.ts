@@ -1,8 +1,17 @@
 import type { RequestHandler } from '@builder.io/qwik-city';
 import { getClient, validateClientCredentials } from '../../../lib/auth/client-manager';
 import { generateToken, hashToken } from '../../../lib/auth/tokens';
-import { generateKeyPair, SignJWT } from 'jose';
+import { SignJWT, importJWK } from 'jose';
 import { getDB, authTokens, users } from '../../../lib/db';
+import { getOrGenerateJWKS } from '../../../lib/auth/key-manager';
+import { validateAndConsumeAuthorizationCode } from '../../../lib/auth/authorization-codes';
+import { eq } from 'drizzle-orm';
+import { 
+  ACCESS_TOKEN_LIFETIME_MS, 
+  REFRESH_TOKEN_LIFETIME_MS, 
+  ACCESS_TOKEN_LIFETIME_SECONDS,
+  SIGNING_ALGORITHM 
+} from '../../../lib/auth/constants';
 
 /**
  * OAuth 2.0 Token Endpoint
@@ -57,36 +66,34 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Validate PKCE for native clients
-    if (client.applicationType === 'native') {
-      if (!codeVerifier) {
-        event.json(400, {
-          error: 'invalid_request',
-          error_description: 'code_verifier required for native clients',
-        });
-        return;
-      }
-
-      // In a real implementation, you would retrieve the stored code_challenge
-      // and verify it against the code_verifier using SHA256
-      // For now, we'll assume the code is valid
+    // Validate authorization code
+    const codeData = validateAndConsumeAuthorizationCode(code, clientId, redirectUri, codeVerifier);
+    
+    if (!codeData) {
+      event.json(400, {
+        error: 'invalid_grant',
+        error_description: 'Invalid authorization code',
+      });
+      return;
     }
 
-    // In a real implementation, you would:
-    // 1. Validate the authorization code
-    // 2. Ensure it hasn't expired
-    // 3. Verify it belongs to this client
-    // 4. Get the user ID associated with the code
-    
-    // For demo purposes, we'll create tokens for the first user
+    // Validate PKCE for native clients
+    if (client.applicationType === 'native' && !codeVerifier) {
+      event.json(400, {
+        error: 'invalid_request',
+        error_description: 'code_verifier required for native clients',
+      });
+      return;
+    }
+
+    // Get user from database using the user ID from the authorization code
     const db = getDB(event);
-    const allUsers = await db.select().from(users).limit(1);
-    const user = allUsers[0];
+    const [user] = await db.select().from(users).where(eq(users.id, codeData.userId));
     
     if (!user) {
       event.json(400, {
         error: 'invalid_grant',
-        error_description: 'Invalid authorization code',
+        error_description: 'User not found',
       });
       return;
     }
@@ -100,8 +107,8 @@ export const onPost: RequestHandler = async (event) => {
     // Store tokens in database
     const tokenId = generateToken();
     const now = new Date();
-    const accessExpiresAt = new Date(now.getTime() + 3600 * 1000); // 1 hour
-    const refreshExpiresAt = new Date(now.getTime() + 30 * 24 * 3600 * 1000); // 30 days
+    const accessExpiresAt = new Date(now.getTime() + ACCESS_TOKEN_LIFETIME_MS);
+    const refreshExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_LIFETIME_MS);
 
     await db.insert(authTokens).values({
       id: tokenId,
@@ -127,7 +134,7 @@ export const onPost: RequestHandler = async (event) => {
     event.json(200, {
       access_token: accessToken,
       token_type: 'Bearer',
-      expires_in: 3600,
+      expires_in: ACCESS_TOKEN_LIFETIME_SECONDS,
       refresh_token: refreshToken,
       id_token: idToken,
       scope: 'openid profile email',
@@ -144,13 +151,14 @@ export const onPost: RequestHandler = async (event) => {
 };
 
 /**
- * Generate JWT access token
+ * Generate JWT access token using persistent JWKS
  */
 async function generateAccessToken(user: any, clientId: string, event: any): Promise<string> {
-  // Generate a key pair for signing (in production, use stored keys)
-  const { privateKey } = await generateKeyPair('RS256');
+  // Use persistent JWKS for consistent signing
+  const jwksData = await getOrGenerateJWKS(event);
+  const privateKey = await importJWK(jwksData.privateKey, SIGNING_ALGORITHM);
   
-  const issuer = `${event.url.protocol}//${event.url.host}`;
+  const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
   const now = Math.floor(Date.now() / 1000);
   
   return await new SignJWT({
@@ -161,22 +169,23 @@ async function generateAccessToken(user: any, clientId: string, event: any): Pro
     client_id: clientId,
     scope: 'openid profile email',
   })
-    .setProtectedHeader({ alg: 'RS256', kid: 'main-signing-key' })
+    .setProtectedHeader({ alg: SIGNING_ALGORITHM, kid: jwksData.keys[0].kid })
     .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
+    .setExpirationTime(now + ACCESS_TOKEN_LIFETIME_SECONDS)
     .setIssuer(issuer)
     .setAudience(clientId)
     .sign(privateKey);
 }
 
 /**
- * Generate ID token
+ * Generate ID token using persistent JWKS
  */
 async function generateIdToken(user: any, clientId: string, event: any): Promise<string> {
-  // Generate a key pair for signing (in production, use stored keys)
-  const { privateKey } = await generateKeyPair('RS256');
+  // Use persistent JWKS for consistent signing
+  const jwksData = await getOrGenerateJWKS(event);
+  const privateKey = await importJWK(jwksData.privateKey, SIGNING_ALGORITHM);
   
-  const issuer = `${event.url.protocol}//${event.url.host}`;
+  const issuer = `${event.url.protocol}//${event.url.host}/oidc`;
   const now = Math.floor(Date.now() / 1000);
   
   return await new SignJWT({
@@ -188,9 +197,9 @@ async function generateIdToken(user: any, clientId: string, event: any): Promise
     aud: clientId,
     iss: issuer,
     iat: now,
-    exp: now + 3600,
+    exp: now + ACCESS_TOKEN_LIFETIME_SECONDS,
     auth_time: now,
   })
-    .setProtectedHeader({ alg: 'RS256', kid: 'main-signing-key' })
+    .setProtectedHeader({ alg: SIGNING_ALGORITHM, kid: jwksData.keys[0].kid })
     .sign(privateKey);
 }

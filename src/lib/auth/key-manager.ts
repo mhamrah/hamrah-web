@@ -1,5 +1,6 @@
 import { generateKeyPair, exportJWK, importPKCS8 } from 'jose';
 import type { RequestEventCommon } from '@builder.io/qwik-city';
+import { KEY_ROTATION_INTERVAL_MS, RSA_KEY_SIZE, SIGNING_ALGORITHM } from './constants';
 
 export interface JWKSData {
   keys: Array<{
@@ -19,7 +20,6 @@ export interface JWKSData {
 }
 
 const JWKS_KV_KEY = 'oidc:jwks:current';
-const KEY_ROTATION_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
 
 /**
  * Get or generate JWKS with persistent storage in Cloudflare KV
@@ -54,7 +54,7 @@ export async function getOrGenerateJWKS(event: RequestEventCommon): Promise<JWKS
       JWKS_KV_KEY, 
       JSON.stringify(newJWKS),
       {
-        expirationTtl: Math.floor(KEY_ROTATION_INTERVAL / 1000), // Convert to seconds
+        expirationTtl: Math.floor(KEY_ROTATION_INTERVAL_MS / 1000), // Convert to seconds
       }
     );
 
@@ -71,8 +71,8 @@ export async function getOrGenerateJWKS(event: RequestEventCommon): Promise<JWKS
  * Generate new JWKS
  */
 async function generateNewJWKS(): Promise<JWKSData> {
-  const { publicKey, privateKey } = await generateKeyPair('RS256', {
-    modulusLength: 2048,
+  const { publicKey, privateKey } = await generateKeyPair(SIGNING_ALGORITHM, {
+    modulusLength: RSA_KEY_SIZE,
   });
 
   const publicJWK = await exportJWK(publicKey);
@@ -86,7 +86,7 @@ async function generateNewJWKS(): Promise<JWKSData> {
       {
         kty: publicJWK.kty!,
         use: 'sig',
-        alg: 'RS256',
+        alg: SIGNING_ALGORITHM,
         kid,
         n: publicJWK.n,
         e: publicJWK.e,
@@ -97,7 +97,7 @@ async function generateNewJWKS(): Promise<JWKSData> {
     ],
     privateKey: privateJWK,
     createdAt: now,
-    expiresAt: now + KEY_ROTATION_INTERVAL,
+    expiresAt: now + KEY_ROTATION_INTERVAL_MS,
   };
 }
 
@@ -129,7 +129,7 @@ export async function rotateJWKS(event: RequestEventCommon): Promise<JWKSData> {
       JWKS_KV_KEY, 
       JSON.stringify(newJWKS),
       {
-        expirationTtl: Math.floor(KEY_ROTATION_INTERVAL / 1000),
+        expirationTtl: Math.floor(KEY_ROTATION_INTERVAL_MS / 1000),
       }
     );
 
