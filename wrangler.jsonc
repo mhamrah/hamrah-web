@@ -30,6 +30,12 @@
       "migrations_dir": "drizzle/migrations",
     },
   ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "534fd54e3f4c48f597bfed99d46debf8",
+    },
+  ],
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -52,6 +58,7 @@
     "APPLE_CLIENT_ID": "com.hamrah.app.web",
     "APPLE_TEAM_ID": "UR6RM9YCF7",
     "APPLE_KEY_ID": "F39VY8L29Z",
+    "NODE_ENV": "production",
   },
   /**
    * Note: Use secrets to store sensitive data.

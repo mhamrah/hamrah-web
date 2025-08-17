@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -67,7 +67,42 @@ export const authTokens = sqliteTable("auth_tokens", {
   revoked: integer("revoked", { mode: "boolean" }).notNull().default(false),
   lastUsed: integer("last_used", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+}, (table) => ({
+  // Composite index for token lookup queries
+  userTokensIdx: index('auth_tokens_user_revoked_expires_idx').on(table.userId, table.revoked, table.accessExpiresAt),
+  // Index for cleanup queries
+  expirationIdx: index('auth_tokens_expiration_idx').on(table.accessExpiresAt),
+  // Index for refresh token queries
+  refreshExpirationIdx: index('auth_tokens_refresh_expiration_idx').on(table.refreshExpiresAt),
+  // Index for user platform queries
+  userPlatformIdx: index('auth_tokens_user_platform_idx').on(table.userId, table.platform),
+}));
+
+// OAuth clients table for OIDC provider
+export const oauthClients = sqliteTable('oauth_clients', {
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull().unique(),
+  clientSecret: text('client_secret'), // Null for public clients
+  clientName: text('client_name').notNull(),
+  applicationType: text('application_type').notNull(), // 'native' | 'web'
+  redirectUris: text('redirect_uris').notNull(), // JSON array
+  grantTypes: text('grant_types').notNull(), // JSON array
+  responseTypes: text('response_types').notNull(), // JSON array
+  tokenEndpointAuthMethod: text('token_endpoint_auth_method').notNull(),
+  scopes: text('scopes').notNull(), // JSON array
+  requireAuthTime: integer('require_auth_time', { mode: 'boolean' }).default(false),
+  defaultMaxAge: integer('default_max_age'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => ({
+  // Index for frequent active client lookups
+  activeClientsIdx: index('oauth_clients_active_idx').on(table.active),
+  // Composite index for active client queries by type
+  activeTypeIdx: index('oauth_clients_active_type_idx').on(table.active, table.applicationType),
+  // Index for client name searches
+  clientNameIdx: index('oauth_clients_name_idx').on(table.clientName),
+}));
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -79,3 +114,5 @@ export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
 export type NewWebAuthnCredential = typeof webauthnCredentials.$inferInsert;
 export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
 export type NewWebAuthnChallenge = typeof webauthnChallenges.$inferInsert;
+export type OAuthClient = typeof oauthClients.$inferSelect;
+export type NewOAuthClient = typeof oauthClients.$inferInsert;

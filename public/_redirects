@@ -1,0 +1,5 @@
+# OpenID Connect Discovery Document redirect
+/.well-known/openid_configuration /oidc/openid_configuration 200
+
+# Optional: Redirect root .well-known to OIDC discovery
+/.well-known/openid-configuration /oidc/openid_configuration 200
