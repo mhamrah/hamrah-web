@@ -30,10 +30,20 @@ export const onRequest: RequestHandler = async (event) => {
 
     const mockResponse = {
       headers: responseHeaders,
+      res: {
+        setHeader: (name: string, value: string) => {
+          responseHeaders.set(name, value);
+        },
+        getHeader: (name: string) => {
+          return responseHeaders.get(name);
+        },
+        statusCode: responseStatus,
+      },
       
       // Header methods
       set(name: string, value: string) {
         responseHeaders.set(name, value);
+        this.res.statusCode = responseStatus;
       },
       
       get(name: string) {
@@ -52,15 +62,26 @@ export const onRequest: RequestHandler = async (event) => {
       // Status setter/getter
       set status(code: number) {
         responseStatus = code;
+        this.res.statusCode = code;
       },
       
       get status() {
         return responseStatus;
       },
 
+      // Type setter/getter (for Koa compatibility)
+      set type(value: string) {
+        responseHeaders.set('Content-Type', value);
+      },
+      
+      get type() {
+        return responseHeaders.get('Content-Type') || '';
+      },
+
       // Redirect method
       redirect(url: string) {
         responseStatus = 302;
+        this.res.statusCode = 302;
         responseHeaders.set('Location', url);
       },
     };
