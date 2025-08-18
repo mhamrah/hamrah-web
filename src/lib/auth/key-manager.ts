@@ -1,4 +1,4 @@
-import { generateKeyPair, exportJWK, importPKCS8 } from 'jose';
+import { generateKeyPair, exportJWK, importPKCS8, importJWK } from 'jose';
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 import { KEY_ROTATION_INTERVAL_MS, RSA_KEY_SIZE, SIGNING_ALGORITHM } from './constants';
 
@@ -15,6 +15,7 @@ export interface JWKSData {
     crv?: string;
   }>;
   privateKey: any;
+  privateKeyJWK: any; // Store the JWK representation for re-import
   createdAt: number;
   expiresAt: number;
 }
@@ -40,19 +41,39 @@ export async function getOrGenerateJWKS(event: RequestEventCommon): Promise<JWKS
       
       // Check if keys are still valid (not expired)
       if (jwksData.expiresAt > Date.now()) {
-        return jwksData;
+        // Ensure we have a proper private key object
+        if (jwksData.privateKeyJWK) {
+          // Re-import the private key from JWK to make it extractable
+          try {
+            jwksData.privateKey = await importJWK(jwksData.privateKeyJWK, SIGNING_ALGORITHM);
+            return jwksData;
+          } catch (error) {
+            console.warn('Failed to re-import private key, will regenerate:', error);
+            // Fall through to generate new keys
+          }
+        } else if (jwksData.privateKey) {
+          // Legacy case - privateKey exists but no JWK
+          return jwksData;
+        }
       }
       
-      console.log('JWKS expired, generating new keys');
+      console.log('JWKS expired or invalid, generating new keys');
     }
 
     // Generate new JWKS if none exist or expired
     const newJWKS = await generateNewJWKS();
     
-    // Store in KV with expiration
+    // Store in KV with expiration (exclude the CryptoKey object for serialization)
+    const storableJWKS = {
+      keys: newJWKS.keys,
+      privateKeyJWK: newJWKS.privateKeyJWK,
+      createdAt: newJWKS.createdAt,
+      expiresAt: newJWKS.expiresAt,
+    };
+    
     await event.platform.env.KV.put(
       JWKS_KV_KEY, 
-      JSON.stringify(newJWKS),
+      JSON.stringify(storableJWKS),
       {
         expirationTtl: Math.floor(KEY_ROTATION_INTERVAL_MS / 1000), // Convert to seconds
       }
@@ -73,6 +94,7 @@ export async function getOrGenerateJWKS(event: RequestEventCommon): Promise<JWKS
 async function generateNewJWKS(): Promise<JWKSData> {
   const { publicKey, privateKey } = await generateKeyPair(SIGNING_ALGORITHM, {
     modulusLength: RSA_KEY_SIZE,
+    extractable: true, // Ensure the key is extractable
   });
 
   const publicJWK = await exportJWK(publicKey);
@@ -95,7 +117,8 @@ async function generateNewJWKS(): Promise<JWKSData> {
         crv: publicJWK.crv,
       },
     ],
-    privateKey: privateJWK,
+    privateKey: privateKey, // Store the actual CryptoKey object
+    privateKeyJWK: privateJWK, // Store JWK for serialization
     createdAt: now,
     expiresAt: now + KEY_ROTATION_INTERVAL_MS,
   };
@@ -124,10 +147,17 @@ export async function rotateJWKS(event: RequestEventCommon): Promise<JWKSData> {
     // Generate new keys
     const newJWKS = await generateNewJWKS();
     
-    // Store in KV
+    // Store in KV (exclude the CryptoKey object for serialization)
+    const storableJWKS = {
+      keys: newJWKS.keys,
+      privateKeyJWK: newJWKS.privateKeyJWK,
+      createdAt: newJWKS.createdAt,
+      expiresAt: newJWKS.expiresAt,
+    };
+    
     await event.platform.env.KV.put(
       JWKS_KV_KEY, 
-      JSON.stringify(newJWKS),
+      JSON.stringify(storableJWKS),
       {
         expirationTtl: Math.floor(KEY_ROTATION_INTERVAL_MS / 1000),
       }

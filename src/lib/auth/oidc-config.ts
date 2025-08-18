@@ -73,8 +73,18 @@ export async function generateJWKS() {
  */
 export async function createOIDCProvider(issuer: string, event: RequestEventCommon) {
   const jwksData = await getOrGenerateJWKS(event);
+  
+  // Create JWKS with private key for signing
   const jwks = {
-    keys: jwksData.keys,
+    keys: jwksData.privateKeyJWK ? [
+      // Private key for signing (includes both public and private components)
+      {
+        ...jwksData.privateKeyJWK,
+        use: 'sig',
+        alg: 'RS256',
+        kid: jwksData.keys[0]?.kid,
+      }
+    ] : [],
   };
 
   // Load clients from database

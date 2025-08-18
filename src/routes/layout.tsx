@@ -4,8 +4,10 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { getCurrentUser } from "~/lib/auth/utils";
 
 export const onRequest: RequestHandler = async (event) => {
-  // Skip auth check for auth routes and public routes
-  if (event.url.pathname.startsWith("/auth/")) {
+  // Skip auth check for auth routes, OIDC routes, and public routes
+  if (event.url.pathname.startsWith("/auth/") || 
+      event.url.pathname.startsWith("/oidc/") ||
+      event.url.pathname.startsWith("/.well-known/")) {
     return;
   }
 
