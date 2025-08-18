@@ -9,18 +9,18 @@ import { getOrGenerateJWKS } from './key-manager';
  * Get cookie secret with production validation
  */
 function getCookieSecret(event: RequestEventCommon): string {
-  const secret = event.platform?.env?.AUTH_SECRET;
+  const secret = event.platform?.env?.COOKIE_SECRET;
   
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('AUTH_SECRET environment variable is required in production');
+      throw new Error('COOKIE_SECRET environment variable is required in production');
     }
-    console.warn('AUTH_SECRET not set, using development default');
+    console.warn('COOKIE_SECRET not set, using development default');
     return 'dev-cookie-secret-not-for-production';
   }
   
   if (secret.length < 32) {
-    throw new Error('AUTH_SECRET must be at least 32 characters long');
+    throw new Error('COOKIE_SECRET must be at least 32 characters long');
   }
   
   return secret;
