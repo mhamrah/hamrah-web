@@ -8,19 +8,19 @@ import { getOrGenerateJWKS } from './key-manager';
 /**
  * Get cookie secret with production validation
  */
-function getCookieSecret(): string {
-  const secret = process.env.COOKIE_SECRET;
+function getCookieSecret(event: RequestEventCommon): string {
+  const secret = event.platform?.env?.AUTH_SECRET;
   
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('COOKIE_SECRET environment variable is required in production');
+      throw new Error('AUTH_SECRET environment variable is required in production');
     }
-    console.warn('COOKIE_SECRET not set, using development default');
+    console.warn('AUTH_SECRET not set, using development default');
     return 'dev-cookie-secret-not-for-production';
   }
   
   if (secret.length < 32) {
-    throw new Error('COOKIE_SECRET must be at least 32 characters long');
+    throw new Error('AUTH_SECRET must be at least 32 characters long');
   }
   
   return secret;
@@ -237,7 +237,7 @@ export async function createOIDCProvider(issuer: string, event: RequestEventComm
 
     // Security policies
     cookies: {
-      keys: [getCookieSecret()],
+      keys: [getCookieSecret(event)],
       long: {
         signed: true,
         secure: true, // HTTPS only in production
