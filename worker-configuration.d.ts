@@ -23,7 +23,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
   [Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-  interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AUTH_GOOGLE_ID" | "AUTH_GOOGLE_SECRET" | "AUTH_SECRET">> { }
+  interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "AUTH_GOOGLE_ID" | "AUTH_GOOGLE_SECRET" | "COOKIE_SECRET">> { }
 }
 
 // Begin runtime types
