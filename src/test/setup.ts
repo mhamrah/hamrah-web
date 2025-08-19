@@ -34,16 +34,19 @@ afterAll(() => {
 global.fetch = vi.fn();
 
 // Mock crypto for token generation
-global.crypto = {
-  ...global.crypto,
-  randomUUID: vi.fn(() => "test-uuid-1234"),
-  getRandomValues: vi.fn((array) => {
-    for (let i = 0; i < array.length; i++) {
-      array[i] = Math.floor(Math.random() * 256);
-    }
-    return array;
-  }),
-} as any;
+Object.defineProperty(global, 'crypto', {
+  value: {
+    randomUUID: vi.fn(() => "test-uuid-1234"),
+    getRandomValues: vi.fn((array) => {
+      for (let i = 0; i < array.length; i++) {
+        array[i] = Math.floor(Math.random() * 256);
+      }
+      return array;
+    }),
+  },
+  writable: true,
+  configurable: true,
+});
 
 // Mock WebAuthn APIs
 global.navigator = {
