@@ -13,6 +13,7 @@ vi.mock("../../lib/db", () => ({
   getDB: vi.fn(),
   users: {},
   webauthnCredentials: {},
+  webauthnChallenges: {},
 }));
 
 // Mock SimpleWebAuthn functions
@@ -22,6 +23,28 @@ vi.mock('@simplewebauthn/server', () => ({
   verifyRegistrationResponse: vi.fn(),
   verifyAuthenticationResponse: vi.fn(),
 }));
+
+// Global setup function for all tests
+const setupMockDB = async (selectResults: any[] = []) => {
+  const { getDB } = await import("../../lib/db");
+  const mockDB = {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(selectResults),
+      }),
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue([]),
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  };
+  vi.mocked(getDB).mockReturnValue(mockDB as any);
+  return mockDB;
+};
 
 describe('WebAuthn Registration', () => {
   let mockEvent: any;
@@ -48,25 +71,7 @@ describe('WebAuthn Registration', () => {
         },
       } as any);
 
-      const { getDB } = await import("../../lib/db");
-      
-      // Mock empty user lookup (new user)
-      const mockDB = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]), // No existing user
-          }),
-        }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockResolvedValue([]),
-        }),
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      };
-      vi.mocked(getDB).mockReturnValue(mockDB as any);
+      await setupMockDB([]);
 
       const options = await generateWebAuthnRegistrationOptionsForNewUser(mockEvent, 'test@example.com', 'Test User');
 
@@ -100,14 +105,7 @@ describe('WebAuthn Registration', () => {
         { id: 'cred-2', publicKey: 'key-2' },
       ];
 
-      mockEvent.platform.D1 = mockDBResponse([mockUser]);
-      
-      // Mock credential lookup
-      mockEvent.platform.D1.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockCredentials),
-        }),
-      });
+      await setupMockDB([mockUser]);
 
       const { generateRegistrationOptions } = await import('@simplewebauthn/server');
       vi.mocked(generateRegistrationOptions).mockResolvedValue({
@@ -155,7 +153,7 @@ describe('WebAuthn Registration', () => {
         },
       } as any);
 
-      mockEvent.platform.D1 = mockDBResponse([]);
+      await setupMockDB([]);
 
       const mockUserForVerification = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
       const result = await verifyWebAuthnRegistration(
@@ -214,12 +212,7 @@ describe('WebAuthn Authentication', () => {
         { id: 'cred-1', transports: '["internal"]' },
       ];
 
-      mockEvent.platform.D1 = mockDBResponse([mockUser]);
-      mockEvent.platform.D1.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(mockCredentials),
-        }),
-      });
+      await setupMockDB([mockUser]);
 
       const { generateAuthenticationOptions } = await import('@simplewebauthn/server');
       vi.mocked(generateAuthenticationOptions).mockResolvedValue({
@@ -243,7 +236,7 @@ describe('WebAuthn Authentication', () => {
     });
 
     it('should throw error for non-existent user', async () => {
-      mockEvent.platform.D1 = mockDBResponse([]);
+      await setupMockDB([]);
 
       await expect(
         generateWebAuthnAuthenticationOptions(mockEvent, 'nonexistent@example.com')
@@ -264,12 +257,7 @@ describe('WebAuthn Authentication', () => {
         counter: 0,
       };
 
-      mockEvent.platform.D1 = mockDBResponse([mockUser]);
-      mockEvent.platform.D1.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([mockCredential]),
-        }),
-      });
+      await setupMockDB([mockUser]);
 
       const mockAuthResponse = {
         id: 'cred-1',
@@ -305,12 +293,7 @@ describe('WebAuthn Authentication', () => {
         email: 'test@example.com',
       };
 
-      mockEvent.platform.D1 = mockDBResponse([mockUser]);
-      mockEvent.platform.D1.select = vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue([]), // No matching credential
-        }),
-      });
+      await setupMockDB([mockUser]);
 
       const mockAuthResponse = {
         id: 'wrong-cred-id',
