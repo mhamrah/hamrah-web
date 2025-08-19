@@ -96,13 +96,16 @@ describe("/api/webauthn/register/begin", () => {
   });
 
   it("should handle webauthn generation errors", async () => {
-    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com", name: "Test User" });
+    mockEvent.parseBody.mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+    });
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
     const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
       "../../../../../lib/auth/webauthn"
     );
-    
+
     vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockRejectedValue(
       new Error("WebAuthn not supported"),
@@ -126,12 +129,16 @@ describe("/api/webauthn/register/begin", () => {
     const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
       "../../../../../lib/auth/webauthn"
     );
-    
+
     vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue({
       challenge: "test",
       rp: { id: "localhost", name: "Hamrah App" },
-      user: { id: "user-id", name: "test@example.com", displayName: "Test User" },
+      user: {
+        id: "user-id",
+        name: "test@example.com",
+        displayName: "Test User",
+      },
       pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
       timeout: 60000,
       attestation: "none" as const,

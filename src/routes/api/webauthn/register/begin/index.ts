@@ -21,7 +21,10 @@ export const onPost: RequestHandler = async (event) => {
 
     if (currentUserResult.user) {
       // Existing user adding a passkey
-      const options = await generateWebAuthnRegistrationOptions(event, currentUserResult.user);
+      const options = await generateWebAuthnRegistrationOptions(
+        event,
+        currentUserResult.user,
+      );
 
       event.json(200, {
         success: true,
