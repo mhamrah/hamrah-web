@@ -6,9 +6,9 @@ export type OAuthClient = typeof oauthClients.$inferSelect;
 export type NewOAuthClient = typeof oauthClients.$inferInsert;
 
 export interface ClientRegistration {
-  client_name: string;
-  application_type: 'native' | 'web';
-  redirect_uris: string[];
+  client_name?: string;
+  application_type?: 'native' | 'web';
+  redirect_uris?: string[];
   grant_types?: string[];
   response_types?: string[];
   token_endpoint_auth_method?: string;

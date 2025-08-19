@@ -88,15 +88,17 @@ export const onPost: RequestHandler = async (event) => {
 
     // Get user from database using the user ID from the authorization code
     const db = getDB(event);
-    const [user] = await db.select().from(users).where(eq(users.id, codeData.userId));
+    const userResults = await db.select().from(users).where(eq(users.id, codeData.userId));
     
-    if (!user) {
+    if (userResults.length === 0) {
       event.json(400, {
         error: 'invalid_grant',
         error_description: 'User not found',
       });
       return;
     }
+    
+    const user = userResults[0];
 
     // Generate access token (JWT)
     const accessToken = await generateAccessToken(user, clientId, event);

@@ -3,8 +3,10 @@ import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
-  name: text("name").notNull(),
+  name: text("name"),
   picture: text("picture"),
+  emailVerified: integer("email_verified", { mode: "timestamp" }), // timestamp when email was verified
+  authMethod: text("auth_method"), // 'google', 'apple', 'webauthn', etc.
   provider: text("provider"), // 'google', 'apple', or null for passkey-only users
   providerId: text("provider_id"), // Can be null for passkey-only users
   lastLoginPlatform: text("last_login_platform"), // 'web', 'ios', 'android', 'api'
