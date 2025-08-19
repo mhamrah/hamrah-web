@@ -68,75 +68,6 @@ export function generateOAuthState(): string {
 }
 
 /**
- * Create OAuth authorization URL with PKCE parameters
- */
-export function createAuthorizationURL(
-  baseURL: string,
-  clientId: string,
-  redirectURI: string,
-  scopes: string[],
-  pkce: PKCECodePair,
-  state: string,
-  additionalParams?: Record<string, string>
-): URL {
-  const url = new URL(baseURL);
-  
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", clientId);
-  url.searchParams.set("redirect_uri", redirectURI);
-  url.searchParams.set("scope", scopes.join(" "));
-  url.searchParams.set("state", state);
-  url.searchParams.set("code_challenge", pkce.codeChallenge);
-  url.searchParams.set("code_challenge_method", pkce.codeChallengeMethod);
-  
-  // Add any additional provider-specific parameters
-  if (additionalParams) {
-    for (const [key, value] of Object.entries(additionalParams)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  
-  return url;
-}
-
-/**
- * Extract and validate OAuth callback parameters
- */
-export interface OAuthCallbackParams {
-  code: string;
-  state: string;
-  error?: string;
-  errorDescription?: string;
-}
-
-export function parseCallbackParams(
-  searchParams: URLSearchParams
-): OAuthCallbackParams | null {
-  const code = searchParams.get("code");
-  const state = searchParams.get("state");
-  const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
-  
-  if (error) {
-    return {
-      code: "",
-      state: state || "",
-      error,
-      errorDescription: errorDescription || undefined,
-    };
-  }
-  
-  if (!code || !state) {
-    return null;
-  }
-  
-  return {
-    code,
-    state,
-  };
-}
-
-/**
  * Validate OAuth state parameter against stored value
  */
 export function validateOAuthState(
@@ -158,13 +89,4 @@ export function validateOAuthState(
   }
   
   return result === 0;
-}
-
-/**
- * Generate nonce for OpenID Connect flows
- */
-export function generateNonce(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return encodeBase64urlNoPadding(bytes);
 }

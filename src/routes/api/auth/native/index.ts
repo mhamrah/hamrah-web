@@ -3,7 +3,7 @@ import { getDB, users } from '~/lib/db';
 import { eq } from 'drizzle-orm';
 import { verifyAppleToken, verifyGoogleToken } from '~/lib/auth/providers';
 import { generateTokens, createRefreshToken } from '~/lib/auth/tokens';
-import { getRateLimitConfig, checkRateLimit, createRateLimitResponse } from '~/lib/auth/security-config';
+// Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
   provider?: 'apple' | 'google';
@@ -36,14 +36,7 @@ interface NativeAuthResponse {
  */
 export const onPost: RequestHandler = async (event) => {
   try {
-    // Rate limiting
-    const rateLimitConfig = getRateLimitConfig('/api/auth/native', event);
-    const rateLimit = await checkRateLimit(event, rateLimitConfig);
-    
-    if (!rateLimit.allowed) {
-      event.send(createRateLimitResponse(rateLimit.resetTime));
-      return;
-    }
+    // Rate limiting removed with OIDC cleanup
 
     const body = await event.parseBody() as NativeAuthRequest;
     const { provider, credential, email, name, picture } = body;

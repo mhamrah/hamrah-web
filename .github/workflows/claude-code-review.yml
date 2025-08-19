@@ -47,8 +47,15 @@ jobs:
             - Potential bugs or issues
             - Performance considerations
             - Security concerns
-            - Test coverage
+            - Test coverage and quality
             
+            Before providing feedback, please run the following commands to understand the current state:
+            1. `pnpm lint` - Check for linting issues
+            2. `pnpm build.types` - Check for TypeScript errors
+            3. `pnpm test:run` - Run unit tests
+            4. `pnpm test:coverage` - Check test coverage
+            
+            Include test results and coverage information in your review.
             Be constructive and helpful in your feedback.
 
           # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
@@ -68,8 +75,8 @@ jobs:
           #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
           #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
           
-          # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
+          # Allow Claude to run tests and linting to provide better feedback
+          allowed_tools: "Bash(pnpm test:run),Bash(pnpm lint),Bash(pnpm build.types),Bash(pnpm test:coverage)"
           
           # Optional: Skip review for certain conditions
           # if: |

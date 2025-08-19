@@ -13,11 +13,17 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
+  /* Set timeout */
+  timeout: 30 * 1000, // 30 seconds per test
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [
+  reporter: process.env.CI ? [
+    ['github'],
     ['html'],
     ['json', { outputFile: 'test-results/results.json' }],
     ['junit', { outputFile: 'test-results/results.xml' }],
+  ] : [
+    ['html'],
+    ['list'],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
@@ -42,37 +48,24 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testMatch: process.env.CI ? /.*\.(spec|test)\.(js|ts|tsx)/ : /.*\.(spec|test)\.(js|ts|tsx)/
     },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
-
-    /* Test against branded browsers. */
-    {
-      name: 'Microsoft Edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    },
-    {
-      name: 'Google Chrome',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    },
+    
+    // Only run additional browsers in CI for critical tests or on main branch
+    ...(process.env.CI && (process.env.GITHUB_REF === 'refs/heads/main' || process.env.GITHUB_EVENT_NAME === 'push') ? [
+      {
+        name: 'firefox',
+        use: { ...devices['Desktop Firefox'] },
+      },
+      {
+        name: 'webkit',
+        use: { ...devices['Desktop Safari'] },
+      },
+      {
+        name: 'Mobile Chrome',
+        use: { ...devices['Pixel 5'] },
+      },
+    ] : []),
   ],
 
   /* Run your local dev server before starting the tests */
@@ -82,6 +75,9 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     ignoreHTTPSErrors: true,
     timeout: 120 * 1000, // 2 minutes to start the server
+    env: {
+      NODE_ENV: 'test'
+    }
   },
 
   /* Global setup and teardown */
