@@ -1,6 +1,12 @@
 import type { RequestEventCommon } from "@builder.io/qwik-city";
-import { validateAccessToken, type TokenValidationResult } from "~/lib/auth/tokens";
-import { validateSessionToken, type SessionValidationResult } from "~/lib/auth/session";
+import {
+  validateAccessToken,
+  type TokenValidationResult,
+} from "~/lib/auth/tokens";
+import {
+  validateSessionToken,
+  type SessionValidationResult,
+} from "~/lib/auth/session";
 import type { User } from "~/lib/db";
 
 /**
@@ -28,14 +34,14 @@ export interface AuthMiddlewareOptions {
  */
 export async function authenticateRequest(
   event: RequestEventCommon,
-  options: AuthMiddlewareOptions = {}
+  options: AuthMiddlewareOptions = {},
 ): Promise<AuthenticationResult | null> {
   const {
     required = true,
     allowExpired = false,
     refreshThreshold = 1000 * 60 * 15, // 15 minutes
   } = options;
-  
+
   // Try token-based authentication first
   const tokenAuth = await tryTokenAuth(event, allowExpired);
   if (tokenAuth) {
@@ -43,10 +49,12 @@ export async function authenticateRequest(
       user: tokenAuth.user,
       method: "token",
       token: tokenAuth.token,
-      needsRefresh: tokenAuth.needsRefresh || shouldRefresh(tokenAuth.token.accessExpiresAt, refreshThreshold),
+      needsRefresh:
+        tokenAuth.needsRefresh ||
+        shouldRefresh(tokenAuth.token.accessExpiresAt, refreshThreshold),
     };
   }
-  
+
   // Fallback to session-based authentication
   const sessionAuth = await trySessionAuth(event, allowExpired);
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -55,15 +63,18 @@ export async function authenticateRequest(
       user: sessionAuth.user,
       method: "session",
       session: sessionAuth.session,
-      needsRefresh: shouldRefresh(sessionAuth.session.expiresAt, refreshThreshold),
+      needsRefresh: shouldRefresh(
+        sessionAuth.session.expiresAt,
+        refreshThreshold,
+      ),
     };
   }
-  
+
   // No valid authentication found
   if (required) {
     throw event.error(401, "Authentication required");
   }
-  
+
   return null;
 }
 
@@ -72,11 +83,14 @@ export async function authenticateRequest(
  */
 export function requireAuth(options: AuthMiddlewareOptions = {}) {
   return async (event: RequestEventCommon) => {
-    const authResult = await authenticateRequest(event, { ...options, required: true });
-    
+    const authResult = await authenticateRequest(event, {
+      ...options,
+      required: true,
+    });
+
     // Add auth info to event for use in handlers
     (event as any).auth = authResult;
-    
+
     return authResult;
   };
 }
@@ -86,11 +100,14 @@ export function requireAuth(options: AuthMiddlewareOptions = {}) {
  */
 export function optionalAuth(options: AuthMiddlewareOptions = {}) {
   return async (event: RequestEventCommon) => {
-    const authResult = await authenticateRequest(event, { ...options, required: false });
-    
+    const authResult = await authenticateRequest(event, {
+      ...options,
+      required: false,
+    });
+
     // Add auth info to event for use in handlers
     (event as any).auth = authResult;
-    
+
     return authResult;
   };
 }
@@ -104,7 +121,7 @@ export function getAuthenticatedUser(event: RequestEventCommon): User {
     throw event.error(401, "Authentication required");
   }
   // TypeScript doesn't know auth is non-null after the check
-   
+
   return auth.user;
 }
 
@@ -113,10 +130,10 @@ export function getAuthenticatedUser(event: RequestEventCommon): User {
  */
 export function requirePermission(event: RequestEventCommon): User {
   const user = getAuthenticatedUser(event);
-  
+
   // Add your permission logic here based on your user model
   // For now, just return the user (all authenticated users have all permissions)
-  
+
   return user;
 }
 
@@ -125,14 +142,18 @@ export function requirePermission(event: RequestEventCommon): User {
  */
 async function tryTokenAuth(
   event: RequestEventCommon,
-  allowExpired: boolean = false
-): Promise<{ user: User; token: NonNullable<TokenValidationResult["token"]>; needsRefresh?: boolean } | null> {
+  allowExpired: boolean = false,
+): Promise<{
+  user: User;
+  token: NonNullable<TokenValidationResult["token"]>;
+  needsRefresh?: boolean;
+} | null> {
   const token = extractBearerToken(event);
   if (!token) return null;
-  
+
   try {
     const result = await validateAccessToken(event, token);
-    
+
     if (result.isValid && result.user && result.token) {
       return {
         user: result.user,
@@ -140,11 +161,12 @@ async function tryTokenAuth(
         needsRefresh: result.needsRefresh,
       };
     }
-    
+
     // Handle expired tokens if allowed
     if (allowExpired && result.token) {
       // You might want to check if the token is only recently expired
-      const isRecentlyExpired = result.token.accessExpiresAt.getTime() > Date.now() - (1000 * 60 * 5); // 5 min grace
+      const isRecentlyExpired =
+        result.token.accessExpiresAt.getTime() > Date.now() - 1000 * 60 * 5; // 5 min grace
       if (isRecentlyExpired) {
         // Re-validate to get user info from expired token
         // This would require a separate method that doesn't check expiration
@@ -154,7 +176,7 @@ async function tryTokenAuth(
   } catch (error) {
     console.error("Token authentication error:", error);
   }
-  
+
   return null;
 }
 
@@ -163,19 +185,19 @@ async function tryTokenAuth(
  */
 async function trySessionAuth(
   event: RequestEventCommon,
-  allowExpired: boolean = false
+  allowExpired: boolean = false,
 ): Promise<SessionValidationResult | null> {
   const sessionToken = extractSessionToken(event);
   if (!sessionToken) return null;
-  
+
   try {
     const result = await validateSessionToken(event, sessionToken);
-    
+
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (result?.session && result?.user) {
       return result;
     }
-    
+
     // Handle expired sessions if allowed
     if (allowExpired) {
       // Session validation already handles expired sessions by deleting them
@@ -184,7 +206,7 @@ async function trySessionAuth(
   } catch (error) {
     console.error("Session authentication error:", error);
   }
-  
+
   return { session: null, user: null };
 }
 
@@ -194,7 +216,7 @@ async function trySessionAuth(
 function extractBearerToken(event: RequestEventCommon): string | null {
   const authHeader = event.request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return null;
-  
+
   const token = authHeader.substring(7).trim();
   return token || null;
 }
@@ -210,9 +232,12 @@ function extractSessionToken(event: RequestEventCommon): string | null {
 /**
  * Check if token/session should be refreshed based on expiration time
  */
-function shouldRefresh(expiresAt: Date | undefined, threshold: number): boolean {
+function shouldRefresh(
+  expiresAt: Date | undefined,
+  threshold: number,
+): boolean {
   if (!expiresAt) return false;
-  
+
   const timeUntilExpiry = expiresAt.getTime() - Date.now();
   return timeUntilExpiry < threshold && timeUntilExpiry > 0;
 }
@@ -228,7 +253,9 @@ export function isAuthenticated(event: RequestEventCommon): boolean {
 /**
  * Get authentication method used for current request
  */
-export function getAuthMethod(event: RequestEventCommon): "token" | "session" | null {
+export function getAuthMethod(
+  event: RequestEventCommon,
+): "token" | "session" | null {
   const auth = (event as any).auth as AuthenticationResult | undefined;
   return auth ? auth.method : null;
 }

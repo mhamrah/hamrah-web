@@ -43,10 +43,29 @@ npm run qwik add # or `yarn qwik add`
 Development mode uses [Vite's development server](https://vitejs.dev/). The `dev` command will server-side render (SSR) the output during development.
 
 ```shell
-npm start # or `yarn start`
+pnpm start # or `pnpm dev`
 ```
 
 > Note: during dev mode, Vite may request a significant number of `.js` files. This does not represent a Qwik production build.
+
+## Testing
+
+This project includes comprehensive testing with unit tests, E2E tests, and CI/CD integration.
+
+```shell
+# Run all tests
+pnpm test:all
+
+# Run quick CI tests
+pnpm test:ci
+
+# Run specific test types
+pnpm test:run          # Unit tests
+pnpm test:coverage     # Coverage report
+pnpm test:e2e          # E2E tests
+```
+
+For detailed testing information, see [TESTING.md](./TESTING.md).
 
 ## Preview
 

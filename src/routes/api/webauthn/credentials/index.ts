@@ -1,30 +1,30 @@
-import type { RequestHandler } from '@builder.io/qwik-city';
-import { getCurrentUser } from '~/lib/auth/utils';
-import { 
-  getUserWebAuthnCredentials, 
-  deleteWebAuthnCredential, 
-  updateWebAuthnCredentialName 
-} from '~/lib/auth/webauthn';
+import type { RequestHandler } from "@builder.io/qwik-city";
+import { getCurrentUser } from "~/lib/auth/utils";
+import {
+  getUserWebAuthnCredentials,
+  deleteWebAuthnCredential,
+  updateWebAuthnCredentialName,
+} from "~/lib/auth/webauthn";
 
 // GET: List user's WebAuthn credentials
 export const onGet: RequestHandler = async (event) => {
   try {
     const { user } = await getCurrentUser(event);
-    
+
     if (!user) {
       event.json(401, {
         success: false,
-        error: 'Not authenticated',
+        error: "Not authenticated",
       });
       return;
     }
 
     const credentials = await getUserWebAuthnCredentials(event, user.id);
-    
+
     // Return safe credential info (don't expose sensitive data)
-    const safeCredentials = credentials.map(cred => ({
+    const safeCredentials = credentials.map((cred) => ({
       id: cred.id,
-      name: cred.name || 'Unnamed Passkey',
+      name: cred.name || "Unnamed Passkey",
       createdAt: cred.createdAt,
       lastUsed: cred.lastUsed,
       credentialDeviceType: cred.credentialDeviceType,
@@ -36,10 +36,10 @@ export const onGet: RequestHandler = async (event) => {
       credentials: safeCredentials,
     });
   } catch (error) {
-    console.error('Get credentials error:', error);
+    console.error("Get credentials error:", error);
     event.json(500, {
       success: false,
-      error: 'Failed to get credentials',
+      error: "Failed to get credentials",
     });
   }
 };
@@ -48,45 +48,49 @@ export const onGet: RequestHandler = async (event) => {
 export const onDelete: RequestHandler = async (event) => {
   try {
     const { user } = await getCurrentUser(event);
-    
+
     if (!user) {
       event.json(401, {
         success: false,
-        error: 'Not authenticated',
+        error: "Not authenticated",
       });
       return;
     }
 
     const body = await event.parseBody();
     const { credentialId } = body as { credentialId: string };
-    
+
     if (!credentialId) {
       event.json(400, {
         success: false,
-        error: 'Credential ID required',
+        error: "Credential ID required",
       });
       return;
     }
 
-    const deleted = await deleteWebAuthnCredential(event, credentialId, user.id);
-    
+    const deleted = await deleteWebAuthnCredential(
+      event,
+      credentialId,
+      user.id,
+    );
+
     if (!deleted) {
       event.json(404, {
         success: false,
-        error: 'Credential not found',
+        error: "Credential not found",
       });
       return;
     }
 
     event.json(200, {
       success: true,
-      message: 'Credential deleted successfully',
+      message: "Credential deleted successfully",
     });
   } catch (error) {
-    console.error('Delete credential error:', error);
+    console.error("Delete credential error:", error);
     event.json(500, {
       success: false,
-      error: 'Failed to delete credential',
+      error: "Failed to delete credential",
     });
   }
 };
@@ -95,45 +99,53 @@ export const onDelete: RequestHandler = async (event) => {
 export const onPatch: RequestHandler = async (event) => {
   try {
     const { user } = await getCurrentUser(event);
-    
+
     if (!user) {
       event.json(401, {
         success: false,
-        error: 'Not authenticated',
+        error: "Not authenticated",
       });
       return;
     }
 
     const body = await event.parseBody();
-    const { credentialId, name } = body as { credentialId: string; name: string };
-    
+    const { credentialId, name } = body as {
+      credentialId: string;
+      name: string;
+    };
+
     if (!credentialId || !name) {
       event.json(400, {
         success: false,
-        error: 'Credential ID and name required',
+        error: "Credential ID and name required",
       });
       return;
     }
 
-    const updated = await updateWebAuthnCredentialName(event, credentialId, user.id, name);
-    
+    const updated = await updateWebAuthnCredentialName(
+      event,
+      credentialId,
+      user.id,
+      name,
+    );
+
     if (!updated) {
       event.json(404, {
         success: false,
-        error: 'Credential not found',
+        error: "Credential not found",
       });
       return;
     }
 
     event.json(200, {
       success: true,
-      message: 'Credential name updated successfully',
+      message: "Credential name updated successfully",
     });
   } catch (error) {
-    console.error('Update credential error:', error);
+    console.error("Update credential error:", error);
     event.json(500, {
       success: false,
-      error: 'Failed to update credential',
+      error: "Failed to update credential",
     });
   }
 };

@@ -1,12 +1,12 @@
-import type { RequestHandler } from '@builder.io/qwik-city';
-import { getDB, users } from '~/lib/db';
-import { eq } from 'drizzle-orm';
-import { verifyAppleToken, verifyGoogleToken } from '~/lib/auth/providers';
-import { generateTokens, createRefreshToken } from '~/lib/auth/tokens';
-import { getRateLimitConfig, checkRateLimit, createRateLimitResponse } from '~/lib/auth/security-config';
+import type { RequestHandler } from "@builder.io/qwik-city";
+import { getDB, users } from "~/lib/db";
+import { eq } from "drizzle-orm";
+import { verifyAppleToken, verifyGoogleToken } from "~/lib/auth/providers";
+import { createTokenPair, type Platform } from "~/lib/auth/tokens";
+// Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
-  provider?: 'apple' | 'google';
+  provider?: "apple" | "google";
   credential?: string; // ID token from the provider
   email?: string;
   name?: string;
@@ -25,33 +25,27 @@ interface NativeAuthResponse {
   };
   accessToken?: string;
   refreshToken?: string;
+  expiresIn?: number;
   error?: string;
 }
 
 /**
  * Native Authentication API for iOS/Android apps
  * Handles Apple Sign-In, Google Sign-In tokens and creates/links users
- * 
+ *
  * POST /api/auth/native
  */
 export const onPost: RequestHandler = async (event) => {
   try {
-    // Rate limiting
-    const rateLimitConfig = getRateLimitConfig('/api/auth/native', event);
-    const rateLimit = await checkRateLimit(event, rateLimitConfig);
-    
-    if (!rateLimit.allowed) {
-      event.send(createRateLimitResponse(rateLimit.resetTime));
-      return;
-    }
+    // Rate limiting removed with OIDC cleanup
 
-    const body = await event.parseBody() as NativeAuthRequest;
+    const body = (await event.parseBody()) as NativeAuthRequest;
     const { provider, credential, email, name, picture } = body;
 
     if (!provider || !credential) {
       event.json(400, {
         success: false,
-        error: 'Missing required fields: provider, credential'
+        error: "Missing required fields: provider, credential",
       } as NativeAuthResponse);
       return;
     }
@@ -65,16 +59,16 @@ export const onPost: RequestHandler = async (event) => {
 
     // Verify the credential with the appropriate provider
     switch (provider) {
-      case 'apple':
-        providerData = await verifyAppleToken(credential);
+      case "apple":
+        providerData = await verifyAppleToken(credential, event);
         break;
-      case 'google':
-        providerData = await verifyGoogleToken(credential);
+      case "google":
+        providerData = await verifyGoogleToken(credential, event);
         break;
       default:
         event.json(400, {
           success: false,
-          error: 'Unsupported provider'
+          error: "Unsupported provider",
         } as NativeAuthResponse);
         return;
     }
@@ -98,7 +92,7 @@ export const onPost: RequestHandler = async (event) => {
     if (existingUsers.length === 0) {
       // Create new user
       const userId = crypto.randomUUID();
-      
+
       await db.insert(users).values({
         id: userId,
         email: providerData.email,
@@ -115,7 +109,7 @@ export const onPost: RequestHandler = async (event) => {
         .select()
         .from(users)
         .where(eq(users.id, userId))
-        .then(rows => rows[0]);
+        .then((rows) => rows[0]);
 
       console.log(`✅ Created new user via ${provider}:`, providerData.email);
     } else {
@@ -139,26 +133,28 @@ export const onPost: RequestHandler = async (event) => {
         updates.picture = providerData.picture;
       }
 
-      await db
-        .update(users)
-        .set(updates)
-        .where(eq(users.id, user.id));
+      await db.update(users).set(updates).where(eq(users.id, user.id));
 
       // Refresh user data
       user = await db
         .select()
         .from(users)
         .where(eq(users.id, user.id))
-        .then(rows => rows[0]);
+        .then((rows) => rows[0]);
 
-      console.log(`✅ Updated existing user via ${provider}:`, providerData.email);
+      console.log(
+        `✅ Updated existing user via ${provider}:`,
+        providerData.email,
+      );
     }
 
-    // Generate access and refresh tokens
-    const { accessToken, refreshTokenValue } = await generateTokens(event, user.id);
-
-    // Store refresh token
-    await createRefreshToken(event, user.id, refreshTokenValue);
+    // Generate token pair
+    const tokenPair = await createTokenPair(
+      event,
+      user.id,
+      "api" as Platform,
+      event.request.headers.get("User-Agent") || "Unknown",
+    );
 
     // Return successful response
     const response: NativeAuthResponse = {
@@ -166,27 +162,33 @@ export const onPost: RequestHandler = async (event) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.name || "User",
         picture: user.picture,
-        authMethod: user.authMethod,
+        authMethod: user.authMethod || "oauth",
         createdAt: user.createdAt.toISOString(),
       },
-      accessToken,
-      refreshToken: refreshTokenValue,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      expiresIn: Math.floor(
+        (tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000,
+      ),
     };
 
     event.json(200, response);
-
   } catch (error) {
-    console.error('Native authentication error:', error);
-    
-    let errorMessage = 'Authentication failed';
-    
+    console.error("Native authentication error:", error);
+
+    let errorMessage = "Authentication failed";
+
     if (error instanceof Error) {
-      if (error.message.includes('Invalid token') || error.message.includes('verification failed')) {
-        errorMessage = 'Invalid authentication credential';
-      } else if (error.message.includes('rate limit')) {
-        errorMessage = 'Too many authentication attempts. Please try again later.';
+      if (
+        error.message.includes("Invalid token") ||
+        error.message.includes("verification failed")
+      ) {
+        errorMessage = "Invalid authentication credential";
+      } else if (error.message.includes("rate limit")) {
+        errorMessage =
+          "Too many authentication attempts. Please try again later.";
       } else {
         errorMessage = error.message;
       }
@@ -194,7 +196,7 @@ export const onPost: RequestHandler = async (event) => {
 
     event.json(400, {
       success: false,
-      error: errorMessage
+      error: errorMessage,
     } as NativeAuthResponse);
   }
 };

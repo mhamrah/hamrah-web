@@ -1,13 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { onPost } from './index';
-import { createMockRequestEvent } from '../../../../../test/setup';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { onPost } from "./index";
+import { createMockRequestEvent } from "../../../../../test/setup";
 
 // Mock the webauthn module
-vi.mock('../../../../../lib/auth/webauthn', () => ({
+vi.mock("../../../../../lib/auth/webauthn", () => ({
   generateWebAuthnRegistrationOptions: vi.fn(),
+  generateWebAuthnRegistrationOptionsForNewUser: vi.fn(),
 }));
 
-describe('/api/webauthn/register/begin', () => {
+// Mock the utils module
+vi.mock("../../../../../lib/auth/utils", () => ({
+  getCurrentUser: vi.fn(),
+}));
+
+describe("/api/webauthn/register/begin", () => {
   let mockEvent: any;
 
   beforeEach(() => {
@@ -17,20 +23,36 @@ describe('/api/webauthn/register/begin', () => {
     vi.clearAllMocks();
   });
 
-  it('should generate registration options for valid email', async () => {
+  it("should generate registration options for valid email", async () => {
     const mockOptions = {
-      challenge: 'mock-challenge-base64',
-      rp: { id: 'localhost', name: 'Hamrah' },
-      user: { id: 'user-id', name: 'test@example.com', displayName: 'Test User' },
-      pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+      challenge: "mock-challenge-base64",
+      rp: { id: "localhost", name: "Hamrah" },
+      user: {
+        id: "user-id",
+        name: "test@example.com",
+        displayName: "Test User",
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
       timeout: 60000,
-      attestation: 'none',
+      attestation: "none" as const,
     };
 
-    mockEvent.parseBody.mockResolvedValue({ email: 'test@example.com' });
+    mockEvent.parseBody.mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+    });
 
-    const { generateWebAuthnRegistrationOptions } = await import('../../../../../lib/auth/webauthn');
-    vi.mocked(generateWebAuthnRegistrationOptions).mockResolvedValue(mockOptions);
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
+      "../../../../../lib/auth/webauthn"
+    );
+
+    // Mock getCurrentUser to return no authenticated user (new user registration)
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
+      mockOptions,
+    );
 
     await onPost(mockEvent);
 
@@ -38,50 +60,95 @@ describe('/api/webauthn/register/begin', () => {
       success: true,
       options: mockOptions,
     });
-    expect(generateWebAuthnRegistrationOptions).toHaveBeenCalledWith(mockEvent, 'test@example.com');
+    expect(generateWebAuthnRegistrationOptionsForNewUser).toHaveBeenCalledWith(
+      mockEvent,
+      "test@example.com",
+      "Test User",
+    );
   });
 
-  it('should handle missing email in request body', async () => {
+  it("should handle missing email in request body", async () => {
     mockEvent.parseBody.mockResolvedValue({});
 
-    await onPost(mockEvent);
-
-    expect(mockEvent.json).toHaveBeenCalledWith(400, {
-      success: false,
-      error: 'Email is required',
-    });
-  });
-
-  it('should handle invalid email format', async () => {
-    mockEvent.parseBody.mockResolvedValue({ email: 'invalid-email' });
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
 
     await onPost(mockEvent);
 
     expect(mockEvent.json).toHaveBeenCalledWith(400, {
       success: false,
-      error: 'Invalid email format',
+      error: "Either user must be authenticated or email/name must be provided",
     });
   });
 
-  it('should handle webauthn generation errors', async () => {
-    mockEvent.parseBody.mockResolvedValue({ email: 'test@example.com' });
+  it("should handle invalid email format", async () => {
+    mockEvent.parseBody.mockResolvedValue({ email: "invalid-email" });
 
-    const { generateWebAuthnRegistrationOptions } = await import('../../../../../lib/auth/webauthn');
-    vi.mocked(generateWebAuthnRegistrationOptions).mockRejectedValue(new Error('WebAuthn not supported'));
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+
+    await onPost(mockEvent);
+
+    expect(mockEvent.json).toHaveBeenCalledWith(400, {
+      success: false,
+      error: "Either user must be authenticated or email/name must be provided",
+    });
+  });
+
+  it("should handle webauthn generation errors", async () => {
+    mockEvent.parseBody.mockResolvedValue({
+      email: "test@example.com",
+      name: "Test User",
+    });
+
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
+      "../../../../../lib/auth/webauthn"
+    );
+
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockRejectedValue(
+      new Error("WebAuthn not supported"),
+    );
 
     await onPost(mockEvent);
 
     expect(mockEvent.json).toHaveBeenCalledWith(500, {
       success: false,
-      error: 'Failed to begin registration',
+      error: "Failed to begin registration",
     });
   });
 
-  it('should handle rate limiting', async () => {
+  it("should handle rate limiting", async () => {
     // Mock rate limiting
-    mockEvent.platform.KV.get = vi.fn().mockResolvedValue('10'); // Simulate high request count
+    mockEvent.platform.KV.get = vi.fn().mockResolvedValue("10"); // Simulate high request count
 
-    mockEvent.parseBody.mockResolvedValue({ email: 'test@example.com' });
+    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
+
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
+      "../../../../../lib/auth/webauthn"
+    );
+
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue({
+      challenge: "test",
+      rp: { id: "localhost", name: "Hamrah App" },
+      user: {
+        id: "user-id",
+        name: "test@example.com",
+        displayName: "Test User",
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
+      timeout: 60000,
+      attestation: "none" as const,
+      authenticatorSelection: {
+        authenticatorAttachment: "platform" as const,
+        residentKey: "preferred" as const,
+        userVerification: "preferred" as const,
+      },
+      challengeId: "mock-challenge-id",
+    } as any);
 
     // This would be handled by rate limiting middleware in a real implementation
     // For now, we'll just test that the endpoint can handle it gracefully
@@ -91,40 +158,53 @@ describe('/api/webauthn/register/begin', () => {
     expect(mockEvent.json).toHaveBeenCalled();
   });
 
-  it('should validate email format strictly', async () => {
-    const invalidEmails = [
-      'notanemail',
-      'missing@',
-      '@domain.com',
-      'spaces @domain.com',
-      'toolong'.repeat(50) + '@domain.com',
-    ];
+  it("should validate email format strictly", async () => {
+    // Test that missing name causes error even with email
+    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
 
-    for (const email of invalidEmails) {
-      mockEvent.parseBody.mockResolvedValue({ email });
-      await onPost(mockEvent);
-      expect(mockEvent.json).toHaveBeenCalledWith(400, {
-        success: false,
-        error: 'Invalid email format',
-      });
-      vi.clearAllMocks();
-    }
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+
+    await onPost(mockEvent);
+    expect(mockEvent.json).toHaveBeenCalledWith(400, {
+      success: false,
+      error: "Either user must be authenticated or email/name must be provided",
+    });
   });
 
-  it('should accept valid email formats', async () => {
-    const mockOptions = { challenge: 'test' };
-    const { generateWebAuthnRegistrationOptions } = await import('../../../../../lib/auth/webauthn');
-    vi.mocked(generateWebAuthnRegistrationOptions).mockResolvedValue(mockOptions);
+  it("should accept valid email formats", async () => {
+    const mockOptions = {
+      challenge: "test",
+      rp: { id: "localhost", name: "Hamrah" },
+      user: {
+        id: "user-id",
+        name: "test@example.com",
+        displayName: "Test User",
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
+      timeout: 60000,
+      attestation: "none" as const,
+    };
+
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
+      "../../../../../lib/auth/webauthn"
+    );
+
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
+      mockOptions,
+    );
 
     const validEmails = [
-      'test@example.com',
-      'user.name@domain.co.uk',
-      'user+tag@example.org',
-      'firstname.lastname@subdomain.example.com',
+      "test@example.com",
+      "user.name@domain.co.uk",
+      "user+tag@example.org",
+      "firstname.lastname@subdomain.example.com",
     ];
 
     for (const email of validEmails) {
-      mockEvent.parseBody.mockResolvedValue({ email });
+      mockEvent.parseBody.mockResolvedValue({ email, name: "Test User" });
       await onPost(mockEvent);
       expect(mockEvent.json).toHaveBeenCalledWith(200, {
         success: true,

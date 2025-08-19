@@ -68,7 +68,7 @@ export async function generateWebAuthnRegistrationOptions(
     rpName,
     rpID,
     userName: user.email,
-    userDisplayName: user.name,
+    userDisplayName: user.name ?? undefined,
     timeout: 60000,
     attestationType: 'none',
     excludeCredentials: existingCredentials.map(cred => ({

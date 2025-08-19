@@ -1,6 +1,8 @@
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 import { generateToken } from './tokens';
-import { AUTHORIZATION_CODE_LIFETIME_MS, PKCE_CODE_CHALLENGE_METHOD } from './constants';
+// Constants moved here from removed constants file
+const AUTHORIZATION_CODE_LIFETIME_MS = 10 * 60 * 1000; // 10 minutes
+const PKCE_CODE_CHALLENGE_METHOD = 'S256';
 
 export interface AuthorizationCodeData {
   code: string;
