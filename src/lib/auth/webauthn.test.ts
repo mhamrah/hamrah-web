@@ -8,6 +8,13 @@ import {
 } from './webauthn';
 import { createMockRequestEvent, mockDBResponse } from '../../test/setup';
 
+// Mock the db module
+vi.mock("../../lib/db", () => ({
+  getDB: vi.fn(),
+  users: {},
+  webauthnCredentials: {},
+}));
+
 // Mock SimpleWebAuthn functions
 vi.mock('@simplewebauthn/server', () => ({
   generateRegistrationOptions: vi.fn(),
@@ -41,8 +48,25 @@ describe('WebAuthn Registration', () => {
         },
       } as any);
 
+      const { getDB } = await import("../../lib/db");
+      
       // Mock empty user lookup (new user)
-      mockEvent.platform.D1 = mockDBResponse([]);
+      const mockDB = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]), // No existing user
+          }),
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockResolvedValue([]),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      };
+      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
       const options = await generateWebAuthnRegistrationOptionsForNewUser(mockEvent, 'test@example.com', 'Test User');
 

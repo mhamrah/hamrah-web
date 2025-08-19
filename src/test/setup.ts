@@ -73,6 +73,7 @@ export function createMockRequestEvent(
         APPLE_KEY_ID: "test-key-id",
         APPLE_CERTIFICATE: "test-certificate",
         COOKIE_SECRET: "test-cookie-secret-32-chars-long",
+        DB: {} as any, // Mock D1 database for drizzle
       },
       cf: {},
       KV: {
