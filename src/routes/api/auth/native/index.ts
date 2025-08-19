@@ -153,7 +153,7 @@ export const onPost: RequestHandler = async (event) => {
       event,
       user.id,
       "api" as Platform,
-      event.request.headers.get("User-Agent") || "Unknown"
+      event.request.headers.get("User-Agent") || "Unknown",
     );
 
     // Return successful response
@@ -169,7 +169,9 @@ export const onPost: RequestHandler = async (event) => {
       },
       accessToken: tokenPair.accessToken,
       refreshToken: tokenPair.refreshToken,
-      expiresIn: Math.floor((tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000),
+      expiresIn: Math.floor(
+        (tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000,
+      ),
     };
 
     event.json(200, response);

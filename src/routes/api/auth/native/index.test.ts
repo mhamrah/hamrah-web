@@ -54,7 +54,7 @@ describe("/api/auth/native", () => {
         refreshToken: "refresh-token-123",
         accessExpiresAt: new Date(Date.now() + 3600000),
         refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-123"
+        tokenId: "token-id-123",
       });
 
       // Mock user retrieval after creation
@@ -86,7 +86,7 @@ describe("/api/auth/native", () => {
               return {
                 then: vi.fn().mockImplementation((callback) => {
                   return Promise.resolve(callback(result));
-                })
+                }),
               };
             }),
           }),
@@ -105,7 +105,10 @@ describe("/api/auth/native", () => {
 
       await onPost(mockEvent);
 
-      expect(verifyGoogleToken).toHaveBeenCalledWith("valid-google-token", mockEvent);
+      expect(verifyGoogleToken).toHaveBeenCalledWith(
+        "valid-google-token",
+        mockEvent,
+      );
       expect(mockEvent.json).toHaveBeenCalledWith(200, {
         success: true,
         user: {
@@ -157,7 +160,7 @@ describe("/api/auth/native", () => {
         refreshToken: "refresh-token-456",
         accessExpiresAt: new Date(Date.now() + 3600000),
         refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-456"
+        tokenId: "token-id-456",
       });
 
       // Mock updated user retrieval
@@ -183,11 +186,12 @@ describe("/api/auth/native", () => {
               updateCallCount++;
               // First call: check for existing user by email (should return existing user)
               // Second call: get updated user after update (should return updated user)
-              const result = updateCallCount === 1 ? [mockExistingUser] : [mockUpdatedUser];
+              const result =
+                updateCallCount === 1 ? [mockExistingUser] : [mockUpdatedUser];
               return {
                 then: vi.fn().mockImplementation((callback) => {
                   return Promise.resolve(callback(result));
-                })
+                }),
               };
             }),
           }),
@@ -246,7 +250,7 @@ describe("/api/auth/native", () => {
         refreshToken: "refresh-token-789",
         accessExpiresAt: new Date(Date.now() + 3600000),
         refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-789"
+        tokenId: "token-id-789",
       });
 
       const mockCreatedUser = {
@@ -256,7 +260,7 @@ describe("/api/auth/native", () => {
         authMethod: "apple",
         picture: null,
         emailVerified: null,
-        provider: "apple", 
+        provider: "apple",
         providerId: "apple-789",
         lastLoginPlatform: "api",
         lastLoginAt: null,
@@ -277,7 +281,7 @@ describe("/api/auth/native", () => {
               return {
                 then: vi.fn().mockImplementation((callback) => {
                   return Promise.resolve(callback(result));
-                })
+                }),
               };
             }),
           }),
@@ -296,7 +300,10 @@ describe("/api/auth/native", () => {
 
       await onPost(mockEvent);
 
-      expect(verifyAppleToken).toHaveBeenCalledWith("valid-apple-token", mockEvent);
+      expect(verifyAppleToken).toHaveBeenCalledWith(
+        "valid-apple-token",
+        mockEvent,
+      );
       expect(mockEvent.json).toHaveBeenCalledWith(
         200,
         expect.objectContaining({
@@ -376,7 +383,7 @@ describe("/api/auth/native", () => {
         "../../../../lib/auth/providers"
       );
       const { getDB } = await import("../../../../lib/db");
-      
+
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
 
       // Mock database error

@@ -58,7 +58,11 @@ export const onGet: RequestHandler = async (event) => {
 
   // Validate state parameter
   const storedState = event.cookie.get(`${provider}_oauth_state`)?.value;
-  if (!storedState || !callbackParams.state || !validateOAuthState(callbackParams.state, storedState)) {
+  if (
+    !storedState ||
+    !callbackParams.state ||
+    !validateOAuthState(callbackParams.state, storedState)
+  ) {
     return handleError(event, "invalid_state", "web");
   }
 

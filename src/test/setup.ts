@@ -34,7 +34,7 @@ afterAll(() => {
 global.fetch = vi.fn();
 
 // Mock crypto for token generation
-Object.defineProperty(global, 'crypto', {
+Object.defineProperty(global, "crypto", {
   value: {
     randomUUID: vi.fn(() => "test-uuid-1234"),
     getRandomValues: vi.fn((array) => {
