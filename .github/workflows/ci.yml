@@ -84,7 +84,7 @@ jobs:
 
       - name: Wait for server to be ready
         run: |
-          timeout 60s bash -c 'until curl -f http://localhost:5173/; do sleep 2; done'
+          timeout 60s bash -c 'until curl -f --insecure https://localhost:5173/; do sleep 2; done'
 
       - name: Run E2E tests
         run: pnpm test:e2e

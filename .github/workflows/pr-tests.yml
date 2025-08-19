@@ -226,7 +226,7 @@ jobs:
 
       - name: Wait for server
         run: |
-          timeout 60s bash -c 'until curl -f http://localhost:5173/; do sleep 2; done'
+          timeout 60s bash -c 'until curl -f --insecure https://localhost:5173/; do sleep 2; done'
 
       - name: Run critical E2E tests
         run: |
