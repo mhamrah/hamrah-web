@@ -17,11 +17,11 @@ export const onPost: RequestHandler = async (event) => {
       body as BeginRegistrationRequest;
 
     // Check if user is already authenticated
-    const { user } = await getCurrentUser(event);
+    const currentUserResult = await getCurrentUser(event);
 
-    if (user) {
+    if (currentUserResult.user) {
       // Existing user adding a passkey
-      const options = await generateWebAuthnRegistrationOptions(event, user);
+      const options = await generateWebAuthnRegistrationOptions(event, currentUserResult.user);
 
       event.json(200, {
         success: true,

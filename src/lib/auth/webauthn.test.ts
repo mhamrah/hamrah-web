@@ -24,13 +24,39 @@ vi.mock('@simplewebauthn/server', () => ({
   verifyAuthenticationResponse: vi.fn(),
 }));
 
+// Mock the session module
+vi.mock("../../lib/auth/session", () => ({
+  generateSessionToken: vi.fn(() => "mock-session-token"),
+  createSession: vi.fn().mockResolvedValue({
+    id: "mock-session-id",
+    userId: "user-123",
+    expiresAt: new Date(),
+    createdAt: new Date(),
+  }),
+}));
+
+// Mock the utils module
+vi.mock("../../lib/auth/utils", () => ({
+  generateRandomId: vi.fn(() => "mock-random-id"),
+}));
+
 // Global setup function for all tests
 const setupMockDB = async (selectResults: any[] = []) => {
   const { getDB } = await import("../../lib/db");
   const mockDB = {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(selectResults),
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue(selectResults),
+        }),
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(selectResults),
+        }),
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(selectResults),
+          }),
+        }),
       }),
     }),
     insert: vi.fn().mockReturnValue({
@@ -40,6 +66,58 @@ const setupMockDB = async (selectResults: any[] = []) => {
       set: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue([]),
       }),
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  };
+  vi.mocked(getDB).mockReturnValue(mockDB as any);
+  return mockDB;
+};
+
+// Helper function to setup mock DB with specific query results
+const setupMockDBWithResults = async (queryResults: { [key: string]: any[] } = {}) => {
+  const { getDB } = await import("../../lib/db");
+  const mockDB = {
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockImplementation((condition) => {
+          // Return different results based on the query
+          const queryKey = condition.toString();
+          if (queryKey.includes('webauthnCredentials')) {
+            return {
+              limit: vi.fn().mockResolvedValue(queryResults.credentials || []),
+            };
+          }
+          if (queryKey.includes('webauthnChallenges')) {
+            return {
+              limit: vi.fn().mockResolvedValue(queryResults.challenges || []),
+            };
+          }
+          return {
+            limit: vi.fn().mockResolvedValue([]),
+          };
+        }),
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(queryResults.userCredentials || []),
+        }),
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(queryResults.credentialUser || []),
+          }),
+        }),
+      }),
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue([]),
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
     }),
   };
   vi.mocked(getDB).mockReturnValue(mockDB as any);
@@ -60,14 +138,14 @@ describe('WebAuthn Registration', () => {
       const { generateRegistrationOptions } = await import('@simplewebauthn/server');
       vi.mocked(generateRegistrationOptions).mockResolvedValue({
         challenge: 'mock-challenge',
-        rp: { id: 'localhost', name: 'Hamrah' },
+        rp: { id: 'localhost', name: 'Hamrah App' },
         user: { id: 'user-id', name: 'test@example.com', displayName: 'Test User' },
         pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
         timeout: 60000,
         attestation: 'none',
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
-          userVerification: 'required',
+          userVerification: 'preferred',
         },
       } as any);
 
@@ -79,17 +157,18 @@ describe('WebAuthn Registration', () => {
       expect(options).toHaveProperty('rp');
       expect(options.user.name).toBe('test@example.com');
       expect(generateRegistrationOptions).toHaveBeenCalledWith({
-        rpName: 'Hamrah',
+        rpName: 'Hamrah App',
         rpID: 'localhost',
-        userID: expect.any(String),
         userName: 'test@example.com',
-        userDisplayName: 'test@example.com',
+        userDisplayName: 'Test User',
         attestationType: 'none',
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
-          userVerification: 'required',
+          residentKey: 'preferred',
+          userVerification: 'preferred',
         },
         supportedAlgorithmIDs: [-7, -257],
+        timeout: 60000,
       });
     });
 
@@ -101,11 +180,31 @@ describe('WebAuthn Registration', () => {
         name: 'Test User',
       };
       const mockCredentials = [
-        { id: 'cred-1', publicKey: 'key-1' },
-        { id: 'cred-2', publicKey: 'key-2' },
+        { id: 'cred-1', publicKey: 'key-1', transports: '["internal"]' },
+        { id: 'cred-2', publicKey: 'key-2', transports: '["internal"]' },
       ];
 
-      await setupMockDB([mockUser]);
+      // Mock the database to return credentials when querying for existing credentials
+      const { getDB } = await import("../../lib/db");
+      const mockDB = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(mockCredentials),
+          }),
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockResolvedValue([]),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      };
+      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
       const { generateRegistrationOptions } = await import('@simplewebauthn/server');
       vi.mocked(generateRegistrationOptions).mockResolvedValue({
@@ -122,8 +221,8 @@ describe('WebAuthn Registration', () => {
       expect(generateRegistrationOptions).toHaveBeenCalledWith(
         expect.objectContaining({
           excludeCredentials: [
-            { id: 'cred-1', type: 'public-key', transports: ['internal'] },
-            { id: 'cred-2', type: 'public-key', transports: ['internal'] },
+            { id: 'cred-1', transports: ['internal'] },
+            { id: 'cred-2', transports: ['internal'] },
           ],
         })
       );
@@ -153,13 +252,22 @@ describe('WebAuthn Registration', () => {
         },
       } as any);
 
-      await setupMockDB([]);
+      const mockChallenge = {
+        id: 'challenge-id',
+        challenge: 'mock-challenge',
+        userId: 'user-123',
+        type: 'registration',
+        expiresAt: new Date(Date.now() + 60000), // 1 minute from now
+        createdAt: new Date(),
+      };
+
+      await setupMockDB([mockChallenge]);
 
       const mockUserForVerification = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
       const result = await verifyWebAuthnRegistration(
         mockEvent,
         mockRegistrationResponse as any,
-        'mock-challenge',
+        'challenge-id',
         mockUserForVerification as any
       );
 
@@ -170,6 +278,7 @@ describe('WebAuthn Registration', () => {
         expectedChallenge: 'mock-challenge',
         expectedOrigin: 'https://localhost:5173',
         expectedRPID: 'localhost',
+        requireUserVerification: false,
       });
     });
 
@@ -180,16 +289,27 @@ describe('WebAuthn Registration', () => {
         registrationInfo: undefined,
       } as any);
 
+      const mockChallenge = {
+        id: 'challenge-id',
+        challenge: 'mock-challenge',
+        userId: 'user-123',
+        type: 'registration',
+        expiresAt: new Date(Date.now() + 60000),
+        createdAt: new Date(),
+      };
+
+      await setupMockDB([mockChallenge]);
+
       const mockUserForFailure = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
       const result = await verifyWebAuthnRegistration(
         mockEvent,
         {} as any,
-        'mock-challenge',
+        'challenge-id',
         mockUserForFailure as any
       );
 
       expect(result.verified).toBe(false);
-      expect(result.user).toBeNull();
+      expect(result.user).toBeUndefined();
     });
   });
 });
@@ -207,65 +327,62 @@ describe('WebAuthn Authentication', () => {
       const mockUser = {
         id: 'user-123',
         email: 'test@example.com',
+        name: 'Test User',
       };
       const mockCredentials = [
-        { id: 'cred-1', transports: '["internal"]' },
+        { id: 'cred-1', publicKey: 'key-1' },
+        { id: 'cred-2', publicKey: 'key-2' },
       ];
 
-      await setupMockDB([mockUser]);
+      await setupMockDBWithResults({
+        credentials: mockCredentials,
+        userCredentials: [{ user: mockUser, credential: mockCredentials[0] }, { user: mockUser, credential: mockCredentials[1] }],
+        credentialUser: [{ credential: mockCredentials[0], user: mockUser }, { credential: mockCredentials[1], user: mockUser }],
+      });
 
       const { generateAuthenticationOptions } = await import('@simplewebauthn/server');
       vi.mocked(generateAuthenticationOptions).mockResolvedValue({
-        challenge: 'auth-challenge',
+        challenge: 'mock-challenge',
         allowCredentials: [
-          { id: 'cred-1', type: 'public-key', transports: ['internal'] },
+          { id: 'cred-1', type: 'public-key' },
+          { id: 'cred-2', type: 'public-key' },
         ],
       } as any);
 
       const options = await generateWebAuthnAuthenticationOptions(mockEvent, 'test@example.com');
 
       expect(options).toHaveProperty('challenge');
-      expect(options.allowCredentials).toHaveLength(1);
+      expect(options).toHaveProperty('allowCredentials');
       expect(generateAuthenticationOptions).toHaveBeenCalledWith({
         rpID: 'localhost',
         allowCredentials: [
-          { id: 'cred-1', type: 'public-key', transports: ['internal'] },
+          { id: 'cred-1' },
+          { id: 'cred-2' },
         ],
-        userVerification: 'required',
+        userVerification: 'preferred',
+        timeout: 60000,
       });
     });
 
     it('should throw error for non-existent user', async () => {
-      await setupMockDB([]);
+      await setupMockDBWithResults();
 
-      await expect(
-        generateWebAuthnAuthenticationOptions(mockEvent, 'nonexistent@example.com')
-      ).rejects.toThrow('User not found');
+      await expect(generateWebAuthnAuthenticationOptions(mockEvent, 'nonexistent@example.com'))
+        .rejects.toThrow('User not found');
     });
   });
 
   describe('verifyWebAuthnAuthentication', () => {
     it('should verify valid authentication response', async () => {
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-      };
-      const mockCredential = {
-        id: 'cred-1',
-        publicKey: 'public-key-data',
-        counter: 0,
-      };
-
-      await setupMockDB([mockUser]);
-
-      const mockAuthResponse = {
-        id: 'cred-1',
+      const mockAuthenticationResponse = {
+        id: 'credential-id',
+        rawId: 'credential-id',
         response: {
           clientDataJSON: 'client-data',
           authenticatorData: 'auth-data',
           signature: 'signature',
         },
+        type: 'public-key',
       };
 
       const { verifyAuthenticationResponse } = await import('@simplewebauthn/server');
@@ -276,41 +393,127 @@ describe('WebAuthn Authentication', () => {
         },
       } as any);
 
+      const mockChallenge = {
+        id: 'challenge-id',
+        challenge: 'mock-challenge',
+        userId: 'user-123',
+        type: 'authentication',
+        expiresAt: new Date(Date.now() + 60000),
+        createdAt: new Date(),
+      };
+
+      const mockCredential = {
+        id: 'credential-id',
+        userId: 'user-123',
+        publicKey: 'public-key',
+        counter: 0,
+      };
+
+      const mockUser = { id: 'user-123', email: 'test@example.com', name: 'Test User' };
+
+      // Mock the database with specific results
+      const { getDB } = await import("../../lib/db");
+      const mockDB = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([mockChallenge]),
+            }),
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([{ credential: mockCredential, user: mockUser }]),
+              }),
+            }),
+          }),
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockResolvedValue([]),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      };
+      vi.mocked(getDB).mockReturnValue(mockDB as any);
+
       const result = await verifyWebAuthnAuthentication(
         mockEvent,
-        mockAuthResponse as any,
-        'auth-challenge'
+        mockAuthenticationResponse as any,
+        'challenge-id'
       );
 
       expect(result.verified).toBe(true);
-      expect(result.user).toHaveProperty('email', 'test@example.com');
-      expect(verifyAuthenticationResponse).toHaveBeenCalled();
+      expect(result.user).toHaveProperty('id', 'user-123');
+      expect(verifyAuthenticationResponse).toHaveBeenCalledWith({
+        response: mockAuthenticationResponse,
+        expectedChallenge: 'mock-challenge',
+        expectedOrigin: 'https://localhost:5173',
+        expectedRPID: 'localhost',
+        credential: expect.objectContaining({
+          id: 'credential-id',
+          publicKey: expect.any(Buffer),
+          counter: 0,
+        }),
+        requireUserVerification: false,
+      });
     });
 
     it('should reject authentication with wrong credential', async () => {
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
+      const { verifyAuthenticationResponse } = await import('@simplewebauthn/server');
+      vi.mocked(verifyAuthenticationResponse).mockResolvedValue({
+        verified: false,
+        authenticationInfo: undefined,
+      } as any);
+
+      const mockChallenge = {
+        id: 'challenge-id',
+        challenge: 'mock-challenge',
+        userId: 'user-123',
+        type: 'authentication',
+        expiresAt: new Date(Date.now() + 60000),
+        createdAt: new Date(),
       };
 
-      await setupMockDB([mockUser]);
-
-      const mockAuthResponse = {
-        id: 'wrong-cred-id',
-        response: {
-          clientDataJSON: 'client-data',
-          authenticatorData: 'auth-data',
-          signature: 'signature',
-        },
+      // Mock the database with challenge but no credential
+      const { getDB } = await import("../../lib/db");
+      const mockDB = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([mockChallenge]),
+            }),
+            innerJoin: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([]), // No credential found
+              }),
+            }),
+          }),
+        }),
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn().mockResolvedValue([]),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
       };
+      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
-      await expect(
-        verifyWebAuthnAuthentication(
-          mockEvent,
-          mockAuthResponse as any,
-          'auth-challenge'
-        )
-      ).rejects.toThrow('Credential not found');
+      const result = await verifyWebAuthnAuthentication(
+        mockEvent,
+        { id: 'wrong-credential-id' } as any,
+        'challenge-id'
+      );
+
+      expect(result.verified).toBe(false);
     });
   });
 });

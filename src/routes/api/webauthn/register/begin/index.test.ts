@@ -96,12 +96,15 @@ describe("/api/webauthn/register/begin", () => {
   });
 
   it("should handle webauthn generation errors", async () => {
-    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
+    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com", name: "Test User" });
 
-    const { generateWebAuthnRegistrationOptions } = await import(
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
       "../../../../../lib/auth/webauthn"
     );
-    vi.mocked(generateWebAuthnRegistrationOptions).mockRejectedValue(
+    
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockRejectedValue(
       new Error("WebAuthn not supported"),
     );
 
@@ -118,6 +121,18 @@ describe("/api/webauthn/register/begin", () => {
     mockEvent.platform.KV.get = vi.fn().mockResolvedValue("10"); // Simulate high request count
 
     mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
+
+    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
+    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
+      "../../../../../lib/auth/webauthn"
+    );
+    
+    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null });
+    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue({
+      challenge: "test",
+      rp: { id: "localhost", name: "Hamrah App" },
+      user: { id: "user-id", name: "test@example.com", displayName: "Test User" },
+    });
 
     // This would be handled by rate limiting middleware in a real implementation
     // For now, we'll just test that the endpoint can handle it gracefully
