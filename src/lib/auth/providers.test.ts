@@ -9,6 +9,15 @@ vi.mock('jose', () => ({
 }));
 
 describe('OAuth Provider Token Verification', () => {
+  const mockEvent = {
+    platform: {
+      env: {
+        GOOGLE_CLIENT_ID: 'your-google-client-id',
+        APPLE_CLIENT_ID: 'your-apple-client-id'
+      }
+    }
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
@@ -46,7 +55,7 @@ describe('OAuth Provider Token Verification', () => {
       const mockToken = 'header.payload.signature';
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'test-key-id' }));
 
-      const result = await verifyGoogleToken(mockToken);
+      const result = await verifyGoogleToken(mockToken, mockEvent as any);
 
       expect(result).toEqual({
         email: 'test@gmail.com',
@@ -79,7 +88,7 @@ describe('OAuth Provider Token Verification', () => {
 
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'test-key-id' }));
 
-      await expect(verifyGoogleToken('invalid.token.signature')).rejects.toThrow('Invalid Google token');
+      await expect(verifyGoogleToken('invalid.token.signature', mockEvent as any)).rejects.toThrow('Invalid Google token');
     });
 
     it('should reject token without email', async () => {
@@ -101,7 +110,7 @@ describe('OAuth Provider Token Verification', () => {
 
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'test-key-id' }));
 
-      await expect(verifyGoogleToken('token.without.email')).rejects.toThrow('Invalid Google token');
+      await expect(verifyGoogleToken('token.without.email', mockEvent as any)).rejects.toThrow('Invalid Google token');
     });
 
     it('should handle missing key ID in JWKS', async () => {
@@ -113,7 +122,7 @@ describe('OAuth Provider Token Verification', () => {
 
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'missing-key-id' }));
 
-      await expect(verifyGoogleToken('token.with.missing.key')).rejects.toThrow('Invalid Google token');
+      await expect(verifyGoogleToken('token.with.missing.key', mockEvent as any)).rejects.toThrow('Invalid Google token');
     });
   });
 
@@ -145,7 +154,7 @@ describe('OAuth Provider Token Verification', () => {
 
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'apple-key-id' }));
 
-      const result = await verifyAppleToken('apple.id.token');
+      const result = await verifyAppleToken('apple.id.token', mockEvent as any);
 
       expect(result).toEqual({
         email: 'test@privaterelay.appleid.com',
@@ -178,14 +187,14 @@ describe('OAuth Provider Token Verification', () => {
 
       vi.spyOn(global, 'atob').mockReturnValue(JSON.stringify({ kid: 'apple-key-id' }));
 
-      await expect(verifyAppleToken('expired.apple.token')).rejects.toThrow('Invalid Apple token');
+      await expect(verifyAppleToken('expired.apple.token', mockEvent as any)).rejects.toThrow('Invalid Apple token');
     });
 
     it('should handle JWKS fetch failure', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
-      await expect(verifyGoogleToken('any.token.here')).rejects.toThrow('Invalid Google token');
-      await expect(verifyAppleToken('any.apple.token')).rejects.toThrow('Invalid Apple token');
+      await expect(verifyGoogleToken('any.token.here', mockEvent as any)).rejects.toThrow('Invalid Google token');
+      await expect(verifyAppleToken('any.apple.token', mockEvent as any)).rejects.toThrow('Invalid Apple token');
     });
   });
 
@@ -195,15 +204,15 @@ describe('OAuth Provider Token Verification', () => {
         throw new Error('Invalid base64');
       });
 
-      await expect(verifyGoogleToken('malformed.token')).rejects.toThrow('Invalid Google token');
-      await expect(verifyAppleToken('malformed.token')).rejects.toThrow('Invalid Apple token');
+      await expect(verifyGoogleToken('malformed.token', mockEvent as any)).rejects.toThrow('Invalid Google token');
+      await expect(verifyAppleToken('malformed.token', mockEvent as any)).rejects.toThrow('Invalid Apple token');
     });
 
     it('should handle invalid JSON in JWT header', async () => {
       vi.spyOn(global, 'atob').mockReturnValue('invalid-json');
 
-      await expect(verifyGoogleToken('invalid.header.token')).rejects.toThrow('Invalid Google token');
-      await expect(verifyAppleToken('invalid.header.token')).rejects.toThrow('Invalid Apple token');
+      await expect(verifyGoogleToken('invalid.header.token', mockEvent as any)).rejects.toThrow('Invalid Google token');
+      await expect(verifyAppleToken('invalid.header.token', mockEvent as any)).rejects.toThrow('Invalid Apple token');
     });
   });
 });

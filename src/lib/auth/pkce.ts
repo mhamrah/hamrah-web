@@ -90,3 +90,31 @@ export function validateOAuthState(
   
   return result === 0;
 }
+
+/**
+ * Parse OAuth callback parameters from URLSearchParams
+ */
+export function parseCallbackParams(searchParams: URLSearchParams): {
+  code?: string;
+  state?: string;
+  error?: string;
+  error_description?: string;
+} | null {
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  const error = searchParams.get('error');
+  const error_description = searchParams.get('error_description');
+
+  // If there's an error, return error details
+  if (error) {
+    return { error, error_description: error_description || undefined };
+  }
+
+  // For successful callback, we need both code and state
+  if (code && state) {
+    return { code, state };
+  }
+
+  // Invalid callback
+  return null;
+}

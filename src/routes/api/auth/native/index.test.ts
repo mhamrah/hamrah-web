@@ -9,8 +9,7 @@ vi.mock("../../../../lib/auth/providers", () => ({
 }));
 
 vi.mock("../../../../lib/auth/tokens", () => ({
-  generateTokens: vi.fn(),
-  createRefreshToken: vi.fn(),
+  createTokenPair: vi.fn(),
 }));
 
 describe("/api/auth/native", () => {
@@ -43,12 +42,15 @@ describe("/api/auth/native", () => {
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { generateTokens } = await import("../../../../lib/auth/tokens");
+      const { createTokenPair } = await import("../../../../lib/auth/tokens");
 
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
-      vi.mocked(generateTokens).mockResolvedValue({
+      vi.mocked(createTokenPair).mockResolvedValue({
         accessToken: "access-token-123",
-        refreshTokenValue: "refresh-token-123",
+        refreshToken: "refresh-token-123",
+        accessExpiresAt: new Date(Date.now() + 3600000),
+        refreshExpiresAt: new Date(Date.now() + 86400000),
+        tokenId: "token-id-123"
       });
 
       // Mock successful user insertion
@@ -119,12 +121,15 @@ describe("/api/auth/native", () => {
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { generateTokens } = await import("../../../../lib/auth/tokens");
+      const { createTokenPair } = await import("../../../../lib/auth/tokens");
 
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
-      vi.mocked(generateTokens).mockResolvedValue({
+      vi.mocked(createTokenPair).mockResolvedValue({
         accessToken: "access-token-456",
-        refreshTokenValue: "refresh-token-456",
+        refreshToken: "refresh-token-456",
+        accessExpiresAt: new Date(Date.now() + 3600000),
+        refreshExpiresAt: new Date(Date.now() + 86400000),
+        tokenId: "token-id-456"
       });
 
       // Mock user update
@@ -184,12 +189,15 @@ describe("/api/auth/native", () => {
       const { verifyAppleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { generateTokens } = await import("../../../../lib/auth/tokens");
+      const { createTokenPair } = await import("../../../../lib/auth/tokens");
 
       vi.mocked(verifyAppleToken).mockResolvedValue(mockAppleData);
-      vi.mocked(generateTokens).mockResolvedValue({
+      vi.mocked(createTokenPair).mockResolvedValue({
         accessToken: "access-token-789",
-        refreshTokenValue: "refresh-token-789",
+        refreshToken: "refresh-token-789",
+        accessExpiresAt: new Date(Date.now() + 3600000),
+        refreshExpiresAt: new Date(Date.now() + 86400000),
+        tokenId: "token-id-789"
       });
 
       mockEvent.platform.D1.insert = vi.fn().mockReturnValue({

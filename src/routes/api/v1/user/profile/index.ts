@@ -37,6 +37,14 @@ export const onGet: RequestHandler = async (event) => {
 
     const { user, payload } = authResult;
 
+    if (!user) {
+      event.json(401, {
+        error: "unauthorized",
+        error_description: "User not found",
+      });
+      return;
+    }
+
     // Return user profile data
     const profileData: any = {
       id: user.id,
@@ -89,7 +97,7 @@ export const onPatch: RequestHandler = async (event) => {
     // Validate JWT token and require 'profile' scope
     const authResult = await requireJWTAuth(event, ["openid", "profile"]);
 
-    if (!authResult.isValid) {
+    if (!authResult.isValid || !authResult.user) {
       event.json(401, {
         error: "unauthorized",
         error_description: authResult.error || "Authentication failed",

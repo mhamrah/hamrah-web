@@ -81,7 +81,7 @@ export const onGet: RequestHandler = async (event) => {
     user: {
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: user.name || "User",
       picture: user.picture,
       provider: user.provider,
       last_login_platform: user.lastLoginPlatform,

@@ -51,14 +51,14 @@ export const onGet: RequestHandler = async (event) => {
     console.log(
       `OAuth error from ${provider}:`,
       callbackParams.error,
-      callbackParams.errorDescription,
+      callbackParams.error_description,
     );
     return handleError(event, callbackParams.error, "web");
   }
 
   // Validate state parameter
   const storedState = event.cookie.get(`${provider}_oauth_state`)?.value;
-  if (!storedState || !validateOAuthState(callbackParams.state, storedState)) {
+  if (!storedState || !callbackParams.state || !validateOAuthState(callbackParams.state, storedState)) {
     return handleError(event, "invalid_state", "web");
   }
 
@@ -74,7 +74,7 @@ export const onGet: RequestHandler = async (event) => {
     const userProfile = await exchangeCodeForProfile(
       event,
       provider,
-      callbackParams.code,
+      callbackParams.code!,
       codeVerifier,
     );
 
@@ -187,7 +187,7 @@ export const onPost: RequestHandler = async (event) => {
       user: {
         id: user[0].id,
         email: user[0].email,
-        name: user[0].name,
+        name: user[0].name || "User",
         picture: user[0].picture,
       },
     };

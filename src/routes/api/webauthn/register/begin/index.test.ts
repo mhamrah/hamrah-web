@@ -26,9 +26,9 @@ describe("/api/webauthn/register/begin", () => {
         name: "test@example.com",
         displayName: "Test User",
       },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
       timeout: 60000,
-      attestation: "none",
+      attestation: "none" as const,
     };
 
     mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
@@ -127,7 +127,14 @@ describe("/api/webauthn/register/begin", () => {
   });
 
   it("should accept valid email formats", async () => {
-    const mockOptions = { challenge: "test" };
+    const mockOptions = {
+      challenge: "test",
+      rp: { id: "localhost", name: "Hamrah" },
+      user: { id: "user-id", name: "test@example.com", displayName: "Test User" },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
+      timeout: 60000,
+      attestation: "none" as const,
+    };
     const { generateWebAuthnRegistrationOptions } = await import(
       "../../../../../lib/auth/webauthn"
     );

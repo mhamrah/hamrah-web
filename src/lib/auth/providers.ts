@@ -56,7 +56,7 @@ export async function verifyGoogleToken(idToken: string, event: any): Promise<{
   try {
     // Google's public keys endpoint
     const jwksResponse = await fetch('https://www.googleapis.com/oauth2/v3/certs');
-    const jwks = await jwksResponse.json();
+    const jwks = await jwksResponse.json() as { keys: any[] };
     
     // Decode token header to get key ID
     const [headerB64] = idToken.split('.');
@@ -107,7 +107,7 @@ export async function verifyAppleToken(idToken: string, event: any): Promise<{
   try {
     // Apple's public keys endpoint
     const jwksResponse = await fetch('https://appleid.apple.com/auth/keys');
-    const jwks = await jwksResponse.json();
+    const jwks = await jwksResponse.json() as { keys: any[] };
     
     // Decode token header to get key ID
     const [headerB64] = idToken.split('.');

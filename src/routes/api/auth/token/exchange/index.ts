@@ -97,7 +97,7 @@ export const onPost: RequestHandler = async (event) => {
       user: {
         id: sessionResult.user.id,
         email: sessionResult.user.email,
-        name: sessionResult.user.name,
+        name: sessionResult.user.name || "User",
         picture: sessionResult.user.picture,
       },
     };

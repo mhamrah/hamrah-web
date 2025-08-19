@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { 
   generateWebAuthnRegistrationOptions,
+  generateWebAuthnRegistrationOptionsForNewUser,
   generateWebAuthnAuthenticationOptions,
   verifyWebAuthnRegistration,
   verifyWebAuthnAuthentication 
@@ -43,7 +44,7 @@ describe('WebAuthn Registration', () => {
       // Mock empty user lookup (new user)
       mockEvent.platform.D1 = mockDBResponse([]);
 
-      const options = await generateWebAuthnRegistrationOptions(mockEvent, 'test@example.com');
+      const options = await generateWebAuthnRegistrationOptionsForNewUser(mockEvent, 'test@example.com', 'Test User');
 
       expect(options).toHaveProperty('challenge');
       expect(options).toHaveProperty('rp');
@@ -93,7 +94,8 @@ describe('WebAuthn Registration', () => {
         ],
       } as any);
 
-      await generateWebAuthnRegistrationOptions(mockEvent, 'test@example.com');
+      const mockUserForRegistration = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
+      await generateWebAuthnRegistrationOptions(mockEvent, mockUserForRegistration as any);
 
       expect(generateRegistrationOptions).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -131,11 +133,12 @@ describe('WebAuthn Registration', () => {
 
       mockEvent.platform.D1 = mockDBResponse([]);
 
+      const mockUserForVerification = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
       const result = await verifyWebAuthnRegistration(
         mockEvent,
         mockRegistrationResponse as any,
         'mock-challenge',
-        'test@example.com'
+        mockUserForVerification as any
       );
 
       expect(result.verified).toBe(true);
@@ -155,11 +158,12 @@ describe('WebAuthn Registration', () => {
         registrationInfo: undefined,
       } as any);
 
+      const mockUserForFailure = { id: 'user-123', email: 'test@example.com', name: 'Test User', picture: null, emailVerified: null, authMethod: null, provider: null, providerId: null, lastLoginPlatform: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date() };
       const result = await verifyWebAuthnRegistration(
         mockEvent,
         {} as any,
         'mock-challenge',
-        'test@example.com'
+        mockUserForFailure as any
       );
 
       expect(result.verified).toBe(false);
@@ -263,8 +267,7 @@ describe('WebAuthn Authentication', () => {
       const result = await verifyWebAuthnAuthentication(
         mockEvent,
         mockAuthResponse as any,
-        'auth-challenge',
-        'test@example.com'
+        'auth-challenge'
       );
 
       expect(result.verified).toBe(true);
@@ -298,8 +301,7 @@ describe('WebAuthn Authentication', () => {
         verifyWebAuthnAuthentication(
           mockEvent,
           mockAuthResponse as any,
-          'auth-challenge',
-          'test@example.com'
+          'auth-challenge'
         )
       ).rejects.toThrow('Credential not found');
     });

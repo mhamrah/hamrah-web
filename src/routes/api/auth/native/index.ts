@@ -2,7 +2,7 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { getDB, users } from "~/lib/db";
 import { eq } from "drizzle-orm";
 import { verifyAppleToken, verifyGoogleToken } from "~/lib/auth/providers";
-import { generateTokens, createRefreshToken } from "~/lib/auth/tokens";
+import { createTokenPair, type Platform } from "~/lib/auth/tokens";
 // Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
@@ -25,6 +25,7 @@ interface NativeAuthResponse {
   };
   accessToken?: string;
   refreshToken?: string;
+  expiresIn?: number;
   error?: string;
 }
 
@@ -59,10 +60,10 @@ export const onPost: RequestHandler = async (event) => {
     // Verify the credential with the appropriate provider
     switch (provider) {
       case "apple":
-        providerData = await verifyAppleToken(credential);
+        providerData = await verifyAppleToken(credential, event);
         break;
       case "google":
-        providerData = await verifyGoogleToken(credential);
+        providerData = await verifyGoogleToken(credential, event);
         break;
       default:
         event.json(400, {
@@ -147,14 +148,13 @@ export const onPost: RequestHandler = async (event) => {
       );
     }
 
-    // Generate access and refresh tokens
-    const { accessToken, refreshTokenValue } = await generateTokens(
+    // Generate token pair
+    const tokenPair = await createTokenPair(
       event,
       user.id,
+      "api" as Platform,
+      event.request.headers.get("User-Agent") || "Unknown"
     );
-
-    // Store refresh token
-    await createRefreshToken(event, user.id, refreshTokenValue);
 
     // Return successful response
     const response: NativeAuthResponse = {
@@ -162,13 +162,14 @@ export const onPost: RequestHandler = async (event) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.name || "User",
         picture: user.picture,
-        authMethod: user.authMethod,
+        authMethod: user.authMethod || "oauth",
         createdAt: user.createdAt.toISOString(),
       },
-      accessToken,
-      refreshToken: refreshTokenValue,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      expiresIn: Math.floor((tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000),
     };
 
     event.json(200, response);

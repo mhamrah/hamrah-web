@@ -68,7 +68,7 @@ const passkeyAuthServer = server$(async function (this: any, email?: string) {
             await generateWebAuthnRegistrationOptionsForNewUser(
               this as any,
               email,
-              existingUser[0].name,
+              existingUser[0].name || "User",
             );
           return {
             success: true,
@@ -160,6 +160,8 @@ const completePasskeyAuth = server$(async function (
           email: email || `user-${userId}@temp.com`, // Temporary email if none provided
           name: name || "New User", // Temporary name if none provided
           picture: null,
+          emailVerified: null,
+          authMethod: "webauthn",
           provider: null, // Passkey-only user
           providerId: null,
           lastLoginPlatform: null,
