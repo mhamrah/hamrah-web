@@ -71,7 +71,7 @@ The project uses multiple GitHub Actions workflows:
 
 #### 1. CI Pipeline (`ci.yml`)
 - Runs on: Push to main/develop, PRs
-- **Test Matrix**: Node.js 18 & 20
+- **Node.js Version**: Uses `.nvmrc` (v23)
 - **Steps**:
   1. Linting & Type checking
   2. Unit tests with coverage
