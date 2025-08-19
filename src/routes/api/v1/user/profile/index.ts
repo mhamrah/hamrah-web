@@ -133,14 +133,6 @@ export const onPatch: RequestHandler = async (event) => {
       .where(eq(users.id, authResult.user.id))
       .returning();
 
-    if (!updatedUser) {
-      event.json(404, {
-        error: 'user_not_found',
-        error_description: 'User not found',
-      });
-      return;
-    }
-
     event.json(200, {
       message: 'Profile updated successfully',
       user: {

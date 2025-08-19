@@ -1,4 +1,5 @@
 import { Google, Apple } from "arctic";
+import { jwtVerify, importJWK } from "jose";
 
 export function getGoogleProvider(event: any) {
   const clientId =  event.platform.env.GOOGLE_CLIENT_ID;
@@ -36,4 +37,106 @@ export function getAppleProvider(event: any) {
   const privateKeyUint8Array = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
 
   return new Apple(clientId, teamId, keyId, privateKeyUint8Array, redirectUri);
+}
+
+/**
+ * Verify Google ID Token
+ */
+export async function verifyGoogleToken(idToken: string): Promise<{
+  email: string;
+  name?: string;
+  picture?: string;
+  providerId: string;
+}> {
+  try {
+    // Google's public keys endpoint
+    const jwksResponse = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+    const jwks = await jwksResponse.json();
+    
+    // Decode token header to get key ID
+    const [headerB64] = idToken.split('.');
+    const header = JSON.parse(atob(headerB64));
+    const kid = header.kid;
+    
+    // Find the matching key
+    const key = jwks.keys.find((k: any) => k.kid === kid);
+    if (!key) {
+      throw new Error('No matching key found for token');
+    }
+    
+    // Import the JWK
+    const publicKey = await importJWK(key);
+    
+    // Verify the token
+    const { payload } = await jwtVerify(idToken, publicKey, {
+      issuer: ['https://accounts.google.com', 'accounts.google.com'],
+      audience: process.env.GOOGLE_CLIENT_ID || 'your-google-client-id', // You'll need to configure this
+    });
+    
+    if (!payload.email || typeof payload.email !== 'string') {
+      throw new Error('No email found in Google token');
+    }
+    
+    return {
+      email: payload.email,
+      name: typeof payload.name === 'string' ? payload.name : undefined,
+      picture: typeof payload.picture === 'string' ? payload.picture : undefined,
+      providerId: typeof payload.sub === 'string' ? payload.sub : '',
+    };
+    
+  } catch (error) {
+    console.error('Google token verification failed:', error);
+    throw new Error('Invalid Google token');
+  }
+}
+
+/**
+ * Verify Apple ID Token
+ */
+export async function verifyAppleToken(idToken: string): Promise<{
+  email: string;
+  name?: string;
+  picture?: string;
+  providerId: string;
+}> {
+  try {
+    // Apple's public keys endpoint
+    const jwksResponse = await fetch('https://appleid.apple.com/auth/keys');
+    const jwks = await jwksResponse.json();
+    
+    // Decode token header to get key ID
+    const [headerB64] = idToken.split('.');
+    const header = JSON.parse(atob(headerB64));
+    const kid = header.kid;
+    
+    // Find the matching key
+    const key = jwks.keys.find((k: any) => k.kid === kid);
+    if (!key) {
+      throw new Error('No matching key found for token');
+    }
+    
+    // Import the JWK
+    const publicKey = await importJWK(key);
+    
+    // Verify the token
+    const { payload } = await jwtVerify(idToken, publicKey, {
+      issuer: 'https://appleid.apple.com',
+      audience: process.env.APPLE_CLIENT_ID || 'your-apple-client-id', // You'll need to configure this
+    });
+    
+    if (!payload.email || typeof payload.email !== 'string') {
+      throw new Error('No email found in Apple token');
+    }
+    
+    return {
+      email: payload.email,
+      name: undefined, // Apple doesn't always provide name in token
+      picture: undefined, // Apple doesn't provide picture
+      providerId: typeof payload.sub === 'string' ? payload.sub : '',
+    };
+    
+  } catch (error) {
+    console.error('Apple token verification failed:', error);
+    throw new Error('Invalid Apple token');
+  }
 }
