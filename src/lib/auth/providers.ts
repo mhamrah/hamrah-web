@@ -33,8 +33,13 @@ export function getAppleProvider(event: any) {
     .replaceAll("\n", "")
     .trim();
   
-  // Decode base64 to Uint8Array
-  const privateKeyUint8Array = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+  // Decode base64 to Uint8Array with proper error handling
+  let privateKeyUint8Array: Uint8Array;
+  try {
+    privateKeyUint8Array = Uint8Array.from(atob(privateKeyBase64), c => c.charCodeAt(0));
+  } catch (error) {
+    throw new Error('Invalid Apple certificate format');
+  }
 
   return new Apple(clientId, teamId, keyId, privateKeyUint8Array, redirectUri);
 }
@@ -42,7 +47,7 @@ export function getAppleProvider(event: any) {
 /**
  * Verify Google ID Token
  */
-export async function verifyGoogleToken(idToken: string): Promise<{
+export async function verifyGoogleToken(idToken: string, event: any): Promise<{
   email: string;
   name?: string;
   picture?: string;
@@ -70,7 +75,7 @@ export async function verifyGoogleToken(idToken: string): Promise<{
     // Verify the token
     const { payload } = await jwtVerify(idToken, publicKey, {
       issuer: ['https://accounts.google.com', 'accounts.google.com'],
-      audience: process.env.GOOGLE_CLIENT_ID || 'your-google-client-id', // You'll need to configure this
+      audience: event.platform.env.GOOGLE_CLIENT_ID,
     });
     
     if (!payload.email || typeof payload.email !== 'string') {
@@ -93,7 +98,7 @@ export async function verifyGoogleToken(idToken: string): Promise<{
 /**
  * Verify Apple ID Token
  */
-export async function verifyAppleToken(idToken: string): Promise<{
+export async function verifyAppleToken(idToken: string, event: any): Promise<{
   email: string;
   name?: string;
   picture?: string;
@@ -121,7 +126,7 @@ export async function verifyAppleToken(idToken: string): Promise<{
     // Verify the token
     const { payload } = await jwtVerify(idToken, publicKey, {
       issuer: 'https://appleid.apple.com',
-      audience: process.env.APPLE_CLIENT_ID || 'your-apple-client-id', // You'll need to configure this
+      audience: event.platform.env.APPLE_CLIENT_ID,
     });
     
     if (!payload.email || typeof payload.email !== 'string') {
