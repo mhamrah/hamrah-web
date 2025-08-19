@@ -1,19 +1,19 @@
-import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
-import type { RequestEventCommon } from '@builder.io/qwik-city';
+import { beforeAll, beforeEach, afterEach, afterAll, vi } from "vitest";
+import type { RequestEventCommon } from "@builder.io/qwik-city";
 
 // Global test setup for Vitest
 beforeAll(() => {
   // Set up global test environment
-  process.env.NODE_ENV = 'test';
-  
+  process.env.NODE_ENV = "test";
+
   // Mock environment variables
-  process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
-  process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
-  process.env.APPLE_CLIENT_ID = 'test-apple-client-id';
-  process.env.APPLE_TEAM_ID = 'test-team-id';
-  process.env.APPLE_KEY_ID = 'test-key-id';
-  process.env.APPLE_CERTIFICATE = 'test-certificate';
-  process.env.COOKIE_SECRET = 'test-cookie-secret-32-chars-long';
+  process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+  process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
+  process.env.APPLE_CLIENT_ID = "test-apple-client-id";
+  process.env.APPLE_TEAM_ID = "test-team-id";
+  process.env.APPLE_KEY_ID = "test-key-id";
+  process.env.APPLE_CERTIFICATE = "test-certificate";
+  process.env.COOKIE_SECRET = "test-cookie-secret-32-chars-long";
 });
 
 beforeEach(() => {
@@ -36,7 +36,7 @@ global.fetch = vi.fn();
 // Mock crypto for token generation
 global.crypto = {
   ...global.crypto,
-  randomUUID: vi.fn(() => 'test-uuid-1234'),
+  randomUUID: vi.fn(() => "test-uuid-1234"),
   getRandomValues: vi.fn((array) => {
     for (let i = 0; i < array.length; i++) {
       array[i] = Math.floor(Math.random() * 256);
@@ -55,19 +55,21 @@ global.navigator = {
 } as any;
 
 // Helper function to create mock request event
-export function createMockRequestEvent(overrides: Partial<RequestEventCommon> = {}): RequestEventCommon {
+export function createMockRequestEvent(
+  overrides: Partial<RequestEventCommon> = {},
+): RequestEventCommon {
   return {
-    url: new URL('https://localhost:5173/test'),
-    request: new Request('https://localhost:5173/test'),
+    url: new URL("https://localhost:5173/test"),
+    request: new Request("https://localhost:5173/test"),
     platform: {
       env: {
-        GOOGLE_CLIENT_ID: 'test-google-client-id',
-        GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
-        APPLE_CLIENT_ID: 'test-apple-client-id',
-        APPLE_TEAM_ID: 'test-team-id',
-        APPLE_KEY_ID: 'test-key-id',
-        APPLE_CERTIFICATE: 'test-certificate',
-        COOKIE_SECRET: 'test-cookie-secret-32-chars-long',
+        GOOGLE_CLIENT_ID: "test-google-client-id",
+        GOOGLE_CLIENT_SECRET: "test-google-client-secret",
+        APPLE_CLIENT_ID: "test-apple-client-id",
+        APPLE_TEAM_ID: "test-team-id",
+        APPLE_KEY_ID: "test-key-id",
+        APPLE_CERTIFICATE: "test-certificate",
+        COOKIE_SECRET: "test-cookie-secret-32-chars-long",
       },
       cf: {},
       KV: {
@@ -88,7 +90,7 @@ export function createMockRequestEvent(overrides: Partial<RequestEventCommon> = 
       },
     },
     cookie: {
-      get: vi.fn().mockReturnValue({ value: 'test-cookie' }),
+      get: vi.fn().mockReturnValue({ value: "test-cookie" }),
       set: vi.fn(),
       delete: vi.fn(),
       has: vi.fn().mockReturnValue(false),

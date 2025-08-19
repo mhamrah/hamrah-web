@@ -15,7 +15,7 @@ Cloudflare Rate Limiting provides DDoS protection and API abuse prevention at th
 
 ```
 Rule Name: OAuth Initiation Rate Limit
-Match: 
+Match:
   - URI Path contains "/api/auth/oauth/"
   - HTTP Method is POST or GET
 

@@ -5,6 +5,7 @@ This project uses a comprehensive testing strategy with multiple types of tests 
 ## 🧪 Test Types
 
 ### Unit Tests (Vitest)
+
 - **Framework**: Vitest with JSdom
 - **Location**: `src/**/*.test.ts`
 - **Purpose**: Test individual functions, components, and modules
@@ -24,6 +25,7 @@ pnpm test:coverage
 ```
 
 ### End-to-End Tests (Playwright)
+
 - **Framework**: Playwright
 - **Location**: `tests-e2e/*.spec.ts`
 - **Purpose**: Test complete user workflows and integration
@@ -43,6 +45,7 @@ pnpm test:e2e:debug
 ```
 
 ### Integration Tests
+
 - **Location**: Mixed within unit tests
 - **Purpose**: Test API endpoints, database operations, and service integrations
 
@@ -70,6 +73,7 @@ pnpm test:e2e          # E2E tests
 The project uses multiple GitHub Actions workflows:
 
 #### 1. CI Pipeline (`ci.yml`)
+
 - Runs on: Push to main/develop, PRs
 - **Node.js Version**: Uses `.nvmrc` (v23)
 - **Steps**:
@@ -80,6 +84,7 @@ The project uses multiple GitHub Actions workflows:
   5. Security scanning
 
 #### 2. Pull Request Tests (`pr-tests.yml`)
+
 - Runs on: PR creation and updates
 - **Optimized for speed**:
   1. Quick checks (lint, types)
@@ -89,6 +94,7 @@ The project uses multiple GitHub Actions workflows:
   5. Selective E2E tests (only for significant changes)
 
 #### 3. Deployment (`deploy.yml`)
+
 - Runs on: Main branch after tests pass
 - **Steps**:
   1. Final verification
@@ -99,12 +105,14 @@ The project uses multiple GitHub Actions workflows:
 ## 📊 Test Coverage
 
 ### Coverage Requirements
+
 - **Lines**: 80%
 - **Functions**: 80%
 - **Branches**: 80%
 - **Statements**: 80%
 
 ### Coverage Reports
+
 - **Local**: `coverage/index.html`
 - **CI**: Uploaded to Codecov
 - **PR Comments**: Automatic coverage reports on PRs
@@ -112,21 +120,22 @@ The project uses multiple GitHub Actions workflows:
 ## 🏷️ Test Tags and Organization
 
 ### Test Tags
+
 Use tags in E2E tests for better organization:
 
 ```typescript
 // Critical tests (always run in PRs)
-test('login flow @critical', async ({ page }) => {
+test("login flow @critical", async ({ page }) => {
   // Test implementation
 });
 
 // Smoke tests (quick validation)
-test('homepage loads @smoke', async ({ page }) => {
+test("homepage loads @smoke", async ({ page }) => {
   // Test implementation
 });
 
 // Full tests (only run on main branch)
-test('complete user journey @full', async ({ page }) => {
+test("complete user journey @full", async ({ page }) => {
   // Test implementation
 });
 ```
@@ -147,12 +156,14 @@ pnpm exec playwright test --grep-invert "@slow"
 ## 🛠️ Test Configuration
 
 ### Vitest Configuration
+
 - **File**: `vitest.config.ts`
 - **Coverage**: V8 provider
 - **Environment**: JSdom for browser APIs
 - **Watch**: Enabled by default
 
 ### Playwright Configuration
+
 - **File**: `playwright.config.ts`
 - **Browsers**: Chromium (PR), Firefox/Safari/Mobile (main branch)
 - **Retries**: 2 on CI, 0 locally
@@ -163,6 +174,7 @@ pnpm exec playwright test --grep-invert "@slow"
 ## 🔧 Local Testing Setup
 
 ### Prerequisites
+
 ```bash
 # Install dependencies
 pnpm install
@@ -172,6 +184,7 @@ pnpm exec playwright install --with-deps
 ```
 
 ### Environment Setup
+
 - Tests run against local dev server (`localhost:5173`)
 - Use HTTPS for WebAuthn and secure features
 - Database: In-memory SQLite for tests
@@ -179,6 +192,7 @@ pnpm exec playwright install --with-deps
 ### Debugging Tests
 
 #### Unit Tests
+
 ```bash
 # Debug specific test file
 pnpm exec vitest run src/lib/auth/providers.test.ts
@@ -188,6 +202,7 @@ pnpm exec vitest run --reporter=verbose
 ```
 
 #### E2E Tests
+
 ```bash
 # Debug mode (inspector opens)
 pnpm test:e2e:debug
@@ -202,31 +217,33 @@ pnpm test:e2e:headed
 ## 📝 Writing Tests
 
 ### Unit Test Example
-```typescript
-import { test, expect, vi } from 'vitest';
-import { verifyGoogleToken } from './providers';
 
-test('verifyGoogleToken validates token correctly', async () => {
+```typescript
+import { test, expect, vi } from "vitest";
+import { verifyGoogleToken } from "./providers";
+
+test("verifyGoogleToken validates token correctly", async () => {
   // Mock external dependencies
   const mockFetch = vi.fn();
   global.fetch = mockFetch;
-  
+
   // Test implementation
-  const result = await verifyGoogleToken('valid-token');
-  expect(result.email).toBe('test@example.com');
+  const result = await verifyGoogleToken("valid-token");
+  expect(result.email).toBe("test@example.com");
 });
 ```
 
 ### E2E Test Example
-```typescript
-import { test, expect } from '@playwright/test';
 
-test('user can login with Google @critical', async ({ page }) => {
-  await page.goto('/');
+```typescript
+import { test, expect } from "@playwright/test";
+
+test("user can login with Google @critical", async ({ page }) => {
+  await page.goto("/");
   await page.click('[data-testid="google-login"]');
-  
+
   // Verify redirect and authentication
-  await expect(page).toHaveURL('/dashboard');
+  await expect(page).toHaveURL("/dashboard");
   await expect(page.locator('[data-testid="user-name"]')).toBeVisible();
 });
 ```
@@ -236,6 +253,7 @@ test('user can login with Google @critical', async ({ page }) => {
 ### Common Issues
 
 1. **Playwright browser not found**
+
    ```bash
    pnpm exec playwright install --with-deps
    ```

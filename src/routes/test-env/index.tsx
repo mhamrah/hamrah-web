@@ -6,18 +6,18 @@ export const onGet: RequestHandler = async (event) => {
     clientId: !!(event.platform.env as any).GOOGLE_CLIENT_ID,
     clientSecret: !!(event.platform.env as any).GOOGLE_CLIENT_SECRET,
   };
-  
+
   console.log("Environment test:");
   console.log("Available env keys:", envKeys);
   console.log("Google credentials:", hasGoogle);
   console.log("Platform available:", !!event.platform);
-  
+
   const responseData = {
     envKeys,
     hasGoogle,
     hasPlatform: !!event.platform,
     origin: event.url.origin,
   };
-  
+
   event.json(200, responseData);
 };

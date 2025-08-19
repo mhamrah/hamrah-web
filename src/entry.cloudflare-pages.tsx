@@ -16,36 +16,36 @@ import { manifest } from "@qwik-client-manifest";
 import render from "./entry.ssr";
 declare global {
   interface QwikCityPlatform extends PlatformCloudflarePages {
-    env: Env
+    env: Env;
   }
 }
 
 const qwikCityFetch = createQwikCity({ render, qwikCityPlan, manifest });
 
-// Custom fetch handler to allow Apple OAuth while maintaining CSRF protection  
+// Custom fetch handler to allow Apple OAuth while maintaining CSRF protection
 const fetch = async (request: Request, env: Env, ctx: ExecutionContext) => {
   const url = new URL(request.url);
-  const origin = request.headers.get('origin');
-  
+  const origin = request.headers.get("origin");
+
   // Allow Apple OAuth POST to callback endpoint specifically
   if (
-    request.method === 'POST' && 
-    url.pathname === '/auth/apple/callback' &&
-    origin === 'https://appleid.apple.com'
+    request.method === "POST" &&
+    url.pathname === "/auth/apple/callback" &&
+    origin === "https://appleid.apple.com"
   ) {
     // Create modified headers to bypass CSRF for Apple OAuth only
     const modifiedHeaders = new Headers(request.headers);
-    modifiedHeaders.set('origin', url.origin); // Match server origin
-    
+    modifiedHeaders.set("origin", url.origin); // Match server origin
+
     const modifiedRequest = new Request(request.url, {
       method: request.method,
       headers: modifiedHeaders,
       body: request.body,
     });
-    
+
     return qwikCityFetch(modifiedRequest, env as any, ctx);
   }
-  
+
   // Default handling for all other requests (maintains CSRF protection)
   return qwikCityFetch(request, env as any, ctx);
 };

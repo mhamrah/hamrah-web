@@ -3,7 +3,7 @@ name: Pull Request Tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -30,8 +30,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -64,8 +64,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -87,10 +87,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
+
             // Try to read coverage summary
             let coverageComment = '📊 **Test Coverage Report**\n\n';
-            
+
             try {
               if (fs.existsSync('./coverage/coverage-summary.json')) {
                 const coverage = JSON.parse(fs.readFileSync('./coverage/coverage-summary.json', 'utf8'));
@@ -120,18 +120,18 @@ jobs:
             } catch (error) {
               coverageComment += `Error reading coverage report: ${error.message}\n`;
             }
-            
+
             // Find existing coverage comment
             const comments = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            
+
             const existingComment = comments.data.find(comment => 
               comment.body.includes('📊 **Test Coverage Report**')
             );
-            
+
             if (existingComment) {
               // Update existing comment
               await github.rest.issues.updateComment({
@@ -169,8 +169,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -210,8 +210,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -260,8 +260,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -280,17 +280,17 @@ jobs:
         with:
           script: |
             const needs = ${{ toJSON(needs) }};
-            
+
             let summary = '## 🧪 PR Test Summary\n\n';
             let allPassed = true;
-            
+
             const jobs = [
               { name: 'Quick Checks', key: 'quick-checks' },
               { name: 'Test Coverage', key: 'test-coverage' },
               { name: 'Build Test', key: 'build-test' },
               { name: 'Security Check', key: 'security-check' }
             ];
-            
+
             jobs.forEach(job => {
               const result = needs[job.key];
               const icon = result.result === 'success' ? '✅' : 
@@ -303,24 +303,24 @@ jobs:
                 allPassed = false;
               }
             });
-            
+
             if (allPassed) {
               summary += '\n🎉 **All tests passed!** This PR is ready for review.';
             } else {
               summary += '\n⚠️ **Some tests failed.** Please review and fix issues before merging.';
             }
-            
+
             // Update or create PR summary comment
             const comments = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            
+
             const existingComment = comments.data.find(comment => 
               comment.body.includes('🧪 PR Test Summary')
             );
-            
+
             if (existingComment) {
               await github.rest.issues.updateComment({
                 comment_id: existingComment.id,

@@ -40,7 +40,7 @@ export const onGet: RequestHandler = async (event) => {
   }
 
   const idTokenPayload = JSON.parse(atob(idToken.split(".")[1]));
-  
+
   // OpenID Connect standard claims + Google-specific claims
   const googleUser = {
     sub: idTokenPayload.sub, // Subject (unique user ID)
@@ -53,7 +53,7 @@ export const onGet: RequestHandler = async (event) => {
     locale: idTokenPayload.locale, // Language preference
     hd: idTokenPayload.hd, // Hosted domain (for Google Workspace users)
   };
-  
+
   // Additional claims available but not currently stored:
   // - aud: Audience (your client_id)
   // - iss: Issuer (https://accounts.google.com)

@@ -2,12 +2,12 @@ name: Deploy to Cloudflare Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_run:
     workflows: ["CI Pipeline"]
     types:
       - completed
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
@@ -32,8 +32,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -68,13 +68,13 @@ jobs:
           script: |
             const deployUrl = '${{ steps.deploy.outputs.url }}';
             const comment = `🚀 **Deployment successful!**
-            
+
             Preview URL: ${deployUrl}
-            
+
             ✅ All tests passed
             ✅ Build completed successfully
             ✅ Deployed to Cloudflare Pages`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -100,8 +100,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -122,7 +122,7 @@ jobs:
         run: |
           echo "🎉 Deployment and post-deploy tests completed successfully!"
 
-      - name: Notify deployment failure  
+      - name: Notify deployment failure
         if: failure()
         run: |
           echo "❌ Post-deploy tests failed. Consider rolling back."

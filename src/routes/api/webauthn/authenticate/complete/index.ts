@@ -1,7 +1,7 @@
-import type { RequestHandler } from '@builder.io/qwik-city';
-import type { AuthenticationResponseJSON } from '@simplewebauthn/browser';
-import { verifyWebAuthnAuthentication } from '~/lib/auth/webauthn';
-import { setSessionTokenCookie } from '~/lib/auth/session';
+import type { RequestHandler } from "@builder.io/qwik-city";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+import { verifyWebAuthnAuthentication } from "~/lib/auth/webauthn";
+import { setSessionTokenCookie } from "~/lib/auth/session";
 
 interface CompleteAuthenticationRequest {
   response: AuthenticationResponseJSON;
@@ -11,12 +11,13 @@ interface CompleteAuthenticationRequest {
 export const onPost: RequestHandler = async (event) => {
   try {
     const body = await event.parseBody();
-    const { response, challengeId }: CompleteAuthenticationRequest = body as CompleteAuthenticationRequest;
-    
+    const { response, challengeId }: CompleteAuthenticationRequest =
+      body as CompleteAuthenticationRequest;
+
     if (!challengeId) {
       event.json(400, {
         success: false,
-        error: 'Missing required fields',
+        error: "Missing required fields",
       });
       return;
     }
@@ -24,13 +25,17 @@ export const onPost: RequestHandler = async (event) => {
     const verification = await verifyWebAuthnAuthentication(
       event,
       response,
-      challengeId
+      challengeId,
     );
-    
-    if (!verification.verified || !verification.user || !verification.sessionToken) {
+
+    if (
+      !verification.verified ||
+      !verification.user ||
+      !verification.sessionToken
+    ) {
       event.json(401, {
         success: false,
-        error: 'Authentication failed',
+        error: "Authentication failed",
       });
       return;
     }
@@ -41,7 +46,7 @@ export const onPost: RequestHandler = async (event) => {
 
     event.json(200, {
       success: true,
-      message: 'Authentication successful',
+      message: "Authentication successful",
       user: {
         id: verification.user.id,
         email: verification.user.email,
@@ -50,10 +55,10 @@ export const onPost: RequestHandler = async (event) => {
       },
     });
   } catch (error) {
-    console.error('Complete authentication error:', error);
+    console.error("Complete authentication error:", error);
     event.json(500, {
       success: false,
-      error: 'Failed to complete authentication',
+      error: "Failed to complete authentication",
     });
   }
 };
