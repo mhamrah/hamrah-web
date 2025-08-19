@@ -132,12 +132,15 @@ tsconfig.json
 - **Leverage Vite plugins** for optimized Qwik builds to improve performance and efficiency
 - **Use Vite's fast HMR** for development
 - **Utilize Tailwind's configuration file** for customization
+- **Always write unit tests to validate every change**
+- **Always create or refactor a playwrite test when doing any UI changes**
+- **Always run `pnpm fmt` after writing to disk to adhere to prettier standards. Also following coding standards specified in prettier**
 
 ## Git and Version Control Guidelines
 
-- **Always create a PR from a branch. Never merge to main directly.**
+- **Always create a git workspace and branch when starting a new set of changes.**
+- **Always create a PR to merge to main. Never merge to main directly.**
 - **Create a succinct commit message for the PR and outline the change in the description.**
-- **Always operate on a new branch and create a PR. Never commit code directly to the main branch.**
 
 ## Important Notes
 
