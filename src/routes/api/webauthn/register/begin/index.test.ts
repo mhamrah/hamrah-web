@@ -132,7 +132,16 @@ describe("/api/webauthn/register/begin", () => {
       challenge: "test",
       rp: { id: "localhost", name: "Hamrah App" },
       user: { id: "user-id", name: "test@example.com", displayName: "Test User" },
-    });
+      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
+      timeout: 60000,
+      attestation: "none" as const,
+      authenticatorSelection: {
+        authenticatorAttachment: "platform" as const,
+        residentKey: "preferred" as const,
+        userVerification: "preferred" as const,
+      },
+      challengeId: "mock-challenge-id",
+    } as any);
 
     // This would be handled by rate limiting middleware in a real implementation
     // For now, we'll just test that the endpoint can handle it gracefully
