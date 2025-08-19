@@ -85,7 +85,7 @@ export default defineConfig({
     },
   },
 
-  /* Global setup and teardown */
-  globalSetup: require.resolve("./tests-e2e/global-setup.ts"),
-  globalTeardown: require.resolve("./tests-e2e/global-teardown.ts"),
+  /* Global setup and teardown - disabled for ES module compatibility */
+  // globalSetup: "./tests-e2e/global-setup.ts",
+  // globalTeardown: "./tests-e2e/global-teardown.ts",
 });
