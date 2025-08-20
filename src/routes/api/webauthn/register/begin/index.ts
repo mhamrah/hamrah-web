@@ -16,6 +16,7 @@ export const onPost: RequestHandler = async (event) => {
     const { email, name }: BeginRegistrationRequest =
       body as BeginRegistrationRequest;
 
+    // Production flow
     // Check if user is already authenticated
     const currentUserResult = await getCurrentUser(event);
 

@@ -33,15 +33,6 @@ async function globalSetup(config: FullConfig) {
       }
     }
 
-    // Set up test database
-    console.log("🗄️ Setting up test database...");
-
-    // Create test user for authentication tests
-    await setupTestUsers(page);
-
-    // Set up test OAuth clients
-    await setupTestOAuthClients(page);
-
     console.log("✅ E2E test setup completed");
   } catch (error) {
     console.error("❌ E2E test setup failed:", error);
@@ -49,17 +40,6 @@ async function globalSetup(config: FullConfig) {
   } finally {
     await browser.close();
   }
-}
-
-async function setupTestUsers(page: any) {
-  // You can make API calls to set up test users here
-  // For now, we'll rely on the registration flow during tests
-  console.log("👤 Test users will be created during test execution");
-}
-
-async function setupTestOAuthClients(page: any) {
-  // Set up OAuth clients for testing
-  console.log("🔑 OAuth clients already configured in migration");
 }
 
 export default globalSetup;

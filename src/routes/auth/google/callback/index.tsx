@@ -11,6 +11,25 @@ export const onGet: RequestHandler = async (event) => {
   const url = new URL(event.request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
+
+  // Handle OAuth errors first
+  if (error) {
+    let errorMessage = "OAuth authentication failed";
+    if (error === "access_denied") {
+      errorMessage = "Authentication was cancelled";
+    } else if (errorDescription) {
+      errorMessage = decodeURIComponent(errorDescription);
+    }
+
+    throw event.redirect(
+      302,
+      `/auth/login?error=${encodeURIComponent(errorMessage)}`,
+    );
+  }
+
+  // Production OAuth flow
   const storedState = event.cookie.get("google_oauth_state")?.value ?? null;
   const codeVerifier =
     event.cookie.get("google_oauth_code_verifier")?.value ?? null;

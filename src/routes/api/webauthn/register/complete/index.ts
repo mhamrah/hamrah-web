@@ -30,6 +30,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    // Production flow
     // Check if user is already authenticated
     const { user: existingUser } = await getCurrentUser(event);
 

@@ -9,6 +9,7 @@ interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
   onError?: QRL<(error: string) => void>;
   redirectUrl?: string;
+  initialError?: string;
 }
 
 // Server function for passkey authentication/registration
@@ -207,9 +208,14 @@ const completePasskeyAuth = server$(async function (
 
 export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   const isLoading = useSignal(false);
-  const error = useSignal<string>("");
+  const error = useSignal<string>(props.initialError || "");
   const showEmailInput = useSignal(false);
   const email = useSignal("");
+  const emailSubmitted = useSignal(false);
+  const isWebAuthnSupported = useSignal(true);
+  const isPlatformAuthenticatorAvailable = useSignal(true);
+  const popupBlocked = useSignal(false);
+  const success = useSignal<string>("");
 
   // QRL functions don't need noSerialize
   const { onSuccess, onError } = props;
@@ -235,6 +241,14 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
     }
   });
 
+  const handleEmailSubmit = $(() => {
+    if (showEmailInput.value && email.value) {
+      emailSubmitted.value = true;
+    } else {
+      handlePasskeyAuth();
+    }
+  });
+
   const handlePasskeyAuth = $(async () => {
     isLoading.value = true;
     error.value = "";
@@ -242,7 +256,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
     try {
       // Begin passkey authentication/registration
       const beginResult = (await (passkeyAuthServer as any)(
-        showEmailInput.value ? email.value : undefined,
+        showEmailInput.value && emailSubmitted.value ? email.value : undefined,
       )) as any;
 
       if (!beginResult.success) {
@@ -320,16 +334,71 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         </p>
       </div>
 
+      {success.value && (
+        <div
+          data-testid="success-message"
+          class="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700"
+        >
+          {success.value}
+        </div>
+      )}
+
       {error.value && (
-        <div class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div
+          data-testid="error-message"
+          class="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600"
+        >
           {error.value}
+        </div>
+      )}
+
+      {popupBlocked.value && (
+        <div class="space-y-2">
+          <div
+            data-testid="popup-blocked-message"
+            class="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700"
+          >
+            Popup blocked! Please allow popups for this site to continue with
+            authentication.
+          </div>
+          <div
+            data-testid="enable-popups-instructions"
+            class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700"
+          >
+            <strong>How to enable popups:</strong>
+            <ul class="mt-1 list-disc space-y-1 pl-5">
+              <li>Click the popup blocker icon in your address bar</li>
+              <li>Select "Always allow popups from this site"</li>
+              <li>Try signing in again</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {!isWebAuthnSupported.value && (
+        <div
+          data-testid="passkey-not-supported"
+          class="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-700"
+        >
+          Your browser doesn't support passkeys. Please use a modern browser or
+          try Google/Apple sign-in.
+        </div>
+      )}
+
+      {isWebAuthnSupported.value && !isPlatformAuthenticatorAvailable.value && (
+        <div
+          data-testid="platform-authenticator-unavailable"
+          class="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700"
+        >
+          Platform authenticator not available. You may need to use an external
+          security key.
         </div>
       )}
 
       <div class="space-y-4">
         {/* Passkey Authentication - Primary Option */}
         <div class="space-y-3">
-          {showEmailInput.value && (
+          {showEmailInput.value && !emailSubmitted.value && (
             <div>
               <label
                 for="email"
@@ -339,6 +408,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
               </label>
               <input
                 id="email"
+                data-testid="passkey-email-input"
                 type="email"
                 value={email.value}
                 onInput$={(e) =>
@@ -354,55 +424,69 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick$={handlePasskeyAuth}
-            disabled={isLoading.value}
-            class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading.value ? (
-              <>
-                <svg
-                  class="mr-3 -ml-1 h-5 w-5 animate-spin text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
+          {showEmailInput.value && !emailSubmitted.value ? (
+            <button
+              type="button"
+              data-testid="passkey-continue-button"
+              onClick$={handleEmailSubmit}
+              disabled={isLoading.value}
+              class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continue with Email
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="passkey-signin-button"
+              onClick$={handlePasskeyAuth}
+              disabled={isLoading.value}
+              class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading.value ? (
+                <>
+                  <svg
+                    data-testid="auth-loading"
+                    class="mr-3 -ml-1 h-5 w-5 animate-spin text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
+                    ></circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Authenticating...
+                </>
+              ) : (
+                <>
+                  <svg
+                    class="mr-3 h-5 w-5"
+                    fill="none"
                     stroke="currentColor"
-                    stroke-width="4"
-                  ></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Authenticating...
-              </>
-            ) : (
-              <>
-                <svg
-                  class="mr-3 h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                  />
-                </svg>
-                Continue with Passkey
-              </>
-            )}
-          </button>
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z"
+                    />
+                  </svg>
+                  Continue with Passkey
+                </>
+              )}
+            </button>
+          )}
 
           <div class="text-center">
             <button
@@ -436,6 +520,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         <div class="grid grid-cols-2 gap-3">
           <button
             type="button"
+            data-testid="google-signin-button"
             onClick$={handleGoogleAuth}
             disabled={isLoading.value}
             class="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-500 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"

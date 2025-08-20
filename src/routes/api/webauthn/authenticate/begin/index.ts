@@ -7,7 +7,7 @@ interface BeginAuthenticationRequest {
 
 export const onPost: RequestHandler = async (event) => {
   try {
-    // CORS protection for mobile apps
+    // Production CORS protection for mobile apps
     const userAgent = event.request.headers.get("User-Agent") || "";
     const origin = event.request.headers.get("Origin") || "";
 
