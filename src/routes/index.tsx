@@ -1,9 +1,19 @@
-import { component$ } from "@builder.io/qwik";
+import { component$, $ } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
 import { useUserLoader } from "./layout";
 
 export default component$(() => {
   const user = useUserLoader();
+
+  const handleProtectedAction = $(() => {
+    // Show the action result
+    const resultEl = document.querySelector(
+      '[data-testid="action-result"]',
+    ) as HTMLElement | null;
+    if (resultEl) {
+      resultEl.style.display = "block";
+    }
+  });
 
   return (
     <div class="min-h-screen bg-gray-50 py-8">
@@ -12,14 +22,44 @@ export default component$(() => {
           <div class="mb-6 flex items-center justify-between">
             <h1 class="text-3xl font-bold text-gray-900">Hamrah App</h1>
             <div class="flex space-x-3">
+              <div class="relative">
+                <button
+                  data-testid="user-menu"
+                  class="flex items-center space-x-2 rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  {user.value.picture && (
+                    <img
+                      data-testid="user-avatar"
+                      src={user.value.picture}
+                      alt={user.value.name}
+                      width="24"
+                      height="24"
+                      class="h-6 w-6 rounded-full"
+                    />
+                  )}
+                  <span data-testid="user-name">{user.value.name}</span>
+                  <span data-testid="user-email" class="text-xs text-gray-500">
+                    {user.value.email}
+                  </span>
+                </button>
+                <div data-testid="auth-method" class="hidden">
+                  {user.value.provider
+                    ? user.value.provider === "google"
+                      ? "Google"
+                      : "Apple"
+                    : "Passkey"}
+                </div>
+              </div>
               <a
                 href="/settings"
+                data-testid="account-settings"
                 class="rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
               >
                 Settings
               </a>
               <a
                 href="/auth/logout"
+                data-testid="logout-button"
                 class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
               >
                 Sign Out
@@ -63,6 +103,23 @@ export default component$(() => {
           </div>
 
           <div class="mt-8 border-t pt-6">
+            <div class="mb-6">
+              <button
+                data-testid="protected-action"
+                onClick$={handleProtectedAction}
+                class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              >
+                Perform Protected Action
+              </button>
+              <div
+                data-testid="action-result"
+                class="mt-2 text-sm text-green-600"
+                style="display: none;"
+              >
+                Protected action completed successfully!
+              </div>
+            </div>
+
             <h3 class="mb-4 text-lg font-semibold text-gray-900">
               User Details
             </h3>

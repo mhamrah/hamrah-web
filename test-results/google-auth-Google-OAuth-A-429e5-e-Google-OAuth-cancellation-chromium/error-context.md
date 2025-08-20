@@ -1,0 +1,11 @@
+# Page snapshot
+
+```yaml
+- text: 'Google OAuth credentials not configured File /Users/mhamrah/dev/aiapp/hamrah-app/src/lib/auth/providers.ts:10:11 Frame 8 | 9 | if (!clientId || !clientSecret) { 10 | throw new Error("Google OAuth credentials not configured"); | ^ 11 | } 12 | Stack Trace at getGoogleProvider (/Users/mhamrah/dev/aiapp/hamrah-app/src/lib/auth/providers.ts:10:11) at onGet (/Users/mhamrah/dev/aiapp/hamrah-app/src/routes/auth/google/index.tsx:9:18) at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:80:14) at Object.next (file:///Users/mhamrah/dev/aiapp/hamrah-app/node_modules/.pnpm/@builder.io+qwik-city@1.15.0_acorn@8.15.0_rollup@4.46.3_typescript@5.9.2_vite@7.1.3_@ty_acf51c84e7eda43b77cd9493b436e4f2/node_modules/@builder.io/qwik-city/lib/vite/index.mjs:25559:85) at async _runNext (file:///Users/mhamrah/dev/aiapp/hamrah-app/node_modules/.pnpm/@builder.io+qwik-city@1.15.0_acorn@8.15.0_rollup@4.46.3_typescript@5.9.2_vite@7.1.3_@ty_acf51c84e7eda43b77cd9493b436e4f2/node_modules/@builder.io/qwik-city/lib/vite/index.mjs:25452:7) at async runNext (file:///Users/mhamrah/dev/aiapp/hamrah-app/node_modules/.pnpm/@builder.io+qwik-city@1.15.0_acorn@8.15.0_rollup@4.46.3_typescript@5.9.2_vite@7.1.3_@ty_acf51c84e7eda43b77cd9493b436e4f2/node_modules/@builder.io/qwik-city/lib/vite/index.mjs:25504:12) at async file:///Users/mhamrah/dev/aiapp/hamrah-app/node_modules/.pnpm/@builder.io+qwik-city@1.15.0_acorn@8.15.0_rollup@4.46.3_typescript@5.9.2_vite@7.1.3_@ty_acf51c84e7eda43b77cd9493b436e4f2/node_modules/@builder.io/qwik-city/lib/vite/index.mjs:26772:26 Not sure how to solve this? Visit https://qwik.dev or connect with the community on Discord. Click outside, press Esc key, or fix the code to dismiss. You can also disable this overlay by setting'
+- code: server.hmr.overlay
+- text: to
+- code: "false"
+- text: in
+- code: vite.config.ts
+- text: .
+```
