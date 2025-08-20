@@ -114,6 +114,11 @@ export async function verifyAppleToken(idToken: string, event: any): Promise<{
     const header = JSON.parse(atob(headerB64));
     const kid = header.kid;
     
+    // Debug logging
+    console.log('Apple token verification - kid:', kid);
+    console.log('Apple token verification - audience:', event.platform.env.APPLE_CLIENT_ID);
+    console.log('Available keys:', jwks.keys.map(k => k.kid));
+    
     // Find the matching key
     const key = jwks.keys.find((k: any) => k.kid === kid);
     if (!key) {
@@ -142,6 +147,19 @@ export async function verifyAppleToken(idToken: string, event: any): Promise<{
     
   } catch (error) {
     console.error('Apple token verification failed:', error);
+    
+    // More specific error messages for debugging
+    if (error instanceof Error) {
+      if (error.message.includes('JWTClaimValidationFailed')) {
+        console.error('JWT claim validation failed - likely audience or issuer mismatch');
+      } else if (error.message.includes('JWTExpired')) {
+        console.error('JWT token has expired');
+      } else if (error.message.includes('JWSSignatureVerificationFailed')) {
+        console.error('JWT signature verification failed - likely key mismatch');
+      }
+      throw new Error(`Invalid Apple token: ${error.message}`);
+    }
+    
     throw new Error('Invalid Apple token');
   }
 }
