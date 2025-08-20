@@ -3,9 +3,6 @@ import { generateState, generateCodeVerifier } from "arctic";
 import { getGoogleProvider } from "~/lib/auth/providers";
 
 export const onGet: RequestHandler = async (event) => {
-  // Get redirect URL from query params
-  const redirectUrl = event.url.searchParams.get("redirect") || "/";
-
   const google = getGoogleProvider(event);
   const state = generateState();
   const codeVerifier = generateCodeVerifier();

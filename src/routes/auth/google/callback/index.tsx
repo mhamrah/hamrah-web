@@ -13,12 +13,6 @@ export const onGet: RequestHandler = async (event) => {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
   const errorDescription = url.searchParams.get("error_description");
-  const redirectParam = url.searchParams.get("redirect");
-
-  // Check if we're in test environment
-  const isTestEnv =
-    event.env.get("NODE_ENV") === "test" ||
-    event.headers.get("user-agent")?.includes("HeadlessChrome");
 
   // Handle OAuth errors first
   if (error) {
@@ -33,64 +27,6 @@ export const onGet: RequestHandler = async (event) => {
       302,
       `/auth/login?error=${encodeURIComponent(errorMessage)}`,
     );
-  }
-
-  if (isTestEnv) {
-    // In test environment, handle mock flow
-    if (!code || !state) {
-      throw event.redirect(302, "/auth/login?error=invalid_request");
-    }
-
-    // Simulate the OAuth flow completion based on test scenarios
-    const redirectUrl = redirectParam || "/";
-
-    // Handle different test scenarios based on mock setup
-    if (code === "mock_auth_code") {
-      // Mock successful authentication
-      try {
-        // Create a mock user for testing
-        const mockUserId = await findOrCreateUser(event, {
-          email: "test@gmail.com",
-          name: "Test User",
-          picture: "https://lh3.googleusercontent.com/test-avatar",
-          provider: "google",
-          providerId: "1234567890", // Mock Google user ID
-        });
-
-        // Create session
-        const sessionToken = generateSessionToken();
-        const session = await createSession(event, sessionToken, mockUserId);
-        setSessionTokenCookie(event, sessionToken, session.expiresAt);
-
-        // Redirect with success parameter
-        const finalUrl = new URL(redirectUrl, event.url.origin);
-        finalUrl.searchParams.set("auth", "success");
-        throw event.redirect(302, finalUrl.toString());
-      } catch (error) {
-        console.error("Mock auth error:", error);
-        throw event.redirect(302, "/auth/login?error=authentication_failed");
-      }
-    }
-
-    // Handle different mock error scenarios based on state parameter
-    if (state === "mock_error_state") {
-      throw event.redirect(
-        302,
-        "/auth/login?error=OAuth authentication failed",
-      );
-    }
-    if (state === "mock_token_verification_failure") {
-      throw event.redirect(302, "/auth/login?error=Invalid Google token");
-    }
-    if (state === "mock_email_mismatch") {
-      throw event.redirect(
-        302,
-        "/auth/login?error=Email does not match existing account",
-      );
-    }
-
-    // Default mock error
-    throw event.redirect(302, "/auth/login?error=mock_test_scenario");
   }
 
   // Production OAuth flow

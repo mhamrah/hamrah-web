@@ -30,44 +30,6 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Check if we're in test environment
-    const isTestEnv =
-      event.env.get("NODE_ENV") === "test" ||
-      event.headers.get("user-agent")?.includes("HeadlessChrome");
-
-    if (isTestEnv) {
-      // Mock successful registration completion
-      if (challengeId === "mock-challenge-id") {
-        // Create a mock user for testing
-        const mockUser = {
-          id: "test-user-id",
-          email: email || "test@example.com",
-          name: name || "Test User",
-          picture: null,
-          authMethod: "webauthn",
-          provider: null,
-          providerId: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        // Mock session creation
-        const sessionToken = "mock-session-token";
-
-        return event.json(200, {
-          success: true,
-          message: "Passkey registered successfully",
-          credentialId: "mock-credential-id",
-          user: mockUser,
-        });
-      }
-
-      return event.json(400, {
-        success: false,
-        error: "Mock registration verification failed",
-      });
-    }
-
     // Production flow
     // Check if user is already authenticated
     const { user: existingUser } = await getCurrentUser(event);
