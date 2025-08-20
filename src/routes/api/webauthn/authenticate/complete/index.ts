@@ -10,6 +10,28 @@ interface CompleteAuthenticationRequest {
 
 export const onPost: RequestHandler = async (event) => {
   try {
+    // CORS protection for mobile apps
+    const userAgent = event.request.headers.get("User-Agent") || "";
+    const origin = event.request.headers.get("Origin") || "";
+
+    const isValidRequest =
+      userAgent.includes("CFNetwork") || // iOS requests
+      userAgent.includes("hamrahIOS") || // iOS app identifier
+      origin.includes("localhost") || // Local development
+      origin.includes("hamrah.app") || // Production web
+      event.request.headers.get("X-Requested-With") === "hamrah-ios"; // Custom header
+
+    if (!isValidRequest) {
+      console.warn(
+        `🚫 Blocked unauthorized WebAuthn complete request from: ${userAgent}, origin: ${origin}`,
+      );
+      event.json(403, {
+        success: false,
+        error: "Unauthorized client",
+      });
+      return;
+    }
+
     const body = await event.parseBody();
     const { response, challengeId }: CompleteAuthenticationRequest =
       body as CompleteAuthenticationRequest;

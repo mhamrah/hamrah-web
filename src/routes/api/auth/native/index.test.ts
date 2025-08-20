@@ -22,7 +22,16 @@ describe("/api/auth/native", () => {
   let mockEvent: any;
 
   beforeEach(() => {
-    mockEvent = createMockRequestEvent();
+    // Create mock event with headers that pass CORS protection
+    mockEvent = createMockRequestEvent({
+      request: new Request("https://localhost:5173/test", {
+        headers: {
+          "User-Agent": "CFNetwork/1234 Darwin/21.0.0", // iOS user agent
+          Origin: "localhost:5173", // localhost origin
+          "X-Requested-With": "hamrah-ios", // custom header
+        },
+      }),
+    });
     mockEvent.parseBody = vi.fn();
     mockEvent.json = vi.fn();
     vi.clearAllMocks();
