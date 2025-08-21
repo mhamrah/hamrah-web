@@ -72,10 +72,16 @@ export async function verifyGoogleToken(idToken: string, event: any): Promise<{
     // Import the JWK
     const publicKey = await importJWK(key);
     
+    // Support multiple Google client IDs (web and native)
+    const audiences = [
+      event.platform.env.GOOGLE_CLIENT_ID, // Web client ID
+      '107139115848-jvf449cojr174ocan4vpanddh8i48oko.apps.googleusercontent.com', // iOS native client ID
+    ].filter(Boolean); // Remove any undefined values
+
     // Verify the token
     const { payload } = await jwtVerify(idToken, publicKey, {
       issuer: ['https://accounts.google.com', 'accounts.google.com'],
-      audience: event.platform.env.GOOGLE_CLIENT_ID,
+      audience: audiences,
     });
     
     if (!payload.email || typeof payload.email !== 'string') {
