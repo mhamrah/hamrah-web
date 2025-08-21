@@ -131,7 +131,7 @@ export async function verifyAppleToken(idToken: string, event: any): Promise<{
     // Support multiple Apple client IDs (web and native)
     const audiences = [
       event.platform.env.APPLE_CLIENT_ID, // Web client ID
-      'com.hamrah.HamrahIOSApp', // iOS native app bundle ID
+      'app.hamrah.ios', // iOS native app bundle ID
     ].filter(Boolean); // Remove any undefined values
 
     // Verify the token
