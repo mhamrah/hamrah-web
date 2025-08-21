@@ -128,10 +128,16 @@ export async function verifyAppleToken(idToken: string, event: any): Promise<{
     // Import the JWK
     const publicKey = await importJWK(key);
     
+    // Support multiple Apple client IDs (web and native)
+    const audiences = [
+      event.platform.env.APPLE_CLIENT_ID, // Web client ID
+      'com.hamrah.HamrahIOSApp', // iOS native app bundle ID
+    ].filter(Boolean); // Remove any undefined values
+
     // Verify the token
     const { payload } = await jwtVerify(idToken, publicKey, {
       issuer: 'https://appleid.apple.com',
-      audience: event.platform.env.APPLE_CLIENT_ID,
+      audience: audiences,
     });
     
     if (!payload.email || typeof payload.email !== 'string') {
