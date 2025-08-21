@@ -169,7 +169,7 @@ describe('OAuth Provider Token Verification', () => {
         {},
         {
           issuer: 'https://appleid.apple.com',
-          audience: 'your-apple-client-id',
+          audience: ['your-apple-client-id', 'com.hamrah.HamrahIOSApp'],
         }
       );
     });
