@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getCurrentUser } from "~/lib/auth/utils";
+import { authenticateRequest } from "~/middleware/auth";
 import {
   getUserWebAuthnCredentials,
   deleteWebAuthnCredential,
@@ -9,15 +9,17 @@ import {
 // GET: List user's WebAuthn credentials
 export const onGet: RequestHandler = async (event) => {
   try {
-    const { user } = await getCurrentUser(event);
+    const authResult = await authenticateRequest(event);
 
-    if (!user) {
+    if (!authResult) {
       event.json(401, {
         success: false,
         error: "Not authenticated",
       });
       return;
     }
+
+    const { user } = authResult;
 
     const credentials = await getUserWebAuthnCredentials(event, user.id);
 
@@ -47,15 +49,17 @@ export const onGet: RequestHandler = async (event) => {
 // DELETE: Remove a WebAuthn credential
 export const onDelete: RequestHandler = async (event) => {
   try {
-    const { user } = await getCurrentUser(event);
+    const authResult = await authenticateRequest(event);
 
-    if (!user) {
+    if (!authResult) {
       event.json(401, {
         success: false,
         error: "Not authenticated",
       });
       return;
     }
+
+    const { user } = authResult;
 
     const body = await event.parseBody();
     const { credentialId } = body as { credentialId: string };
@@ -98,15 +102,17 @@ export const onDelete: RequestHandler = async (event) => {
 // PATCH: Update credential name
 export const onPatch: RequestHandler = async (event) => {
   try {
-    const { user } = await getCurrentUser(event);
+    const authResult = await authenticateRequest(event);
 
-    if (!user) {
+    if (!authResult) {
       event.json(401, {
         success: false,
         error: "Not authenticated",
       });
       return;
     }
+
+    const { user } = authResult;
 
     const body = await event.parseBody();
     const { credentialId, name } = body as {
