@@ -3,7 +3,7 @@ import {
   generateWebAuthnRegistrationOptions,
   generateWebAuthnRegistrationOptionsForNewUser,
 } from "~/lib/auth/webauthn";
-import { authenticateRequest } from "~/lib/auth/utils";
+import { getCurrentUser } from "~/lib/auth/utils";
 
 interface BeginRegistrationRequest {
   email?: string;
@@ -18,7 +18,7 @@ export const onPost: RequestHandler = async (event) => {
 
     // Production flow
     // Check if user is already authenticated
-    const currentUserResult = await authenticateRequest(event);
+    const currentUserResult = await getCurrentUser(event);
 
     if (currentUserResult.user) {
       // Existing user adding a passkey
@@ -30,7 +30,6 @@ export const onPost: RequestHandler = async (event) => {
       event.json(200, {
         success: true,
         options: registrationData,
-        challengeId: registrationData.challengeId,
       });
     } else if (email && name) {
       // New user registration with passkey
@@ -43,7 +42,6 @@ export const onPost: RequestHandler = async (event) => {
       event.json(200, {
         success: true,
         options: registrationData,
-        challengeId: registrationData.challengeId,
       });
     } else {
       event.json(400, {
