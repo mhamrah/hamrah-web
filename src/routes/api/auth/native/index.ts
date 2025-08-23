@@ -1,8 +1,9 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getDB, users } from "~/lib/db";
+import { users } from "~/lib/db";
 import { eq } from "drizzle-orm";
 import { verifyAppleToken, verifyGoogleToken } from "~/lib/auth/providers";
-import { createTokenPair, type Platform } from "~/lib/auth/tokens";
+
+import { createAuthApiClient } from "~/lib/auth/apiClient";
 // Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
@@ -37,7 +38,16 @@ interface NativeAuthResponse {
  */
 export const onPost: RequestHandler = async (event) => {
   try {
-    // CORS protection for mobile apps
+    const body = (await event.parseBody()) as NativeAuthRequest;
+    const {
+      provider,
+      credential,
+      email,
+      name,
+      picture,
+      platform = "api",
+      client_attestation,
+    } = body;
     const userAgent = event.request.headers.get("User-Agent") || "";
     const origin = event.request.headers.get("Origin") || "";
 
@@ -76,6 +86,24 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    // Validate client platform and requirements
+    const platformValidation = validateClientPlatform(
+      platform,
+      userAgent,
+      origin,
+      client_attestation,
+    );
+    if (!platformValidation.valid) {
+      console.warn(`🚫 Invalid client platform: ${platformValidation.reason}`);
+      event.json(403, {
+        success: false,
+        error: platformValidation.reason || "Invalid client",
+      } as NativeAuthResponse);
+      return;
+    }
+
+    // Verify the credential with the appropriate provider (OAuth tokens stay in web layer)
+
     let providerData: {
       email: string;
       name?: string;
@@ -104,8 +132,20 @@ export const onPost: RequestHandler = async (event) => {
     if (name) providerData.name = name;
     if (picture) providerData.picture = picture;
 
-    const db = getDB(event);
-    const now = new Date();
+    // Create auth API client and call internal API
+    const authApi = createAuthApiClient(event);
+
+    const apiResponse = await authApi.createTokens({
+      email: providerData.email,
+      name: providerData.name,
+      picture: providerData.picture,
+      auth_method: provider,
+      provider,
+      provider_id: providerData.providerId,
+      platform: platform as "web" | "ios",
+      user_agent: userAgent,
+      client_attestation,
+    });
 
     // Check if user already exists
     const existingUsers = await db
@@ -174,32 +214,28 @@ export const onPost: RequestHandler = async (event) => {
       );
     }
 
-    // Generate token pair
-    const tokenPair = await createTokenPair(
-      event,
-      user.id,
-      "api" as Platform,
-      event.request.headers.get("User-Agent") || "Unknown",
-    );
-
     // Return successful response
     const response: NativeAuthResponse = {
       success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name || "User",
-        picture: user.picture,
-        authMethod: user.authMethod || "oauth",
-        createdAt: user.createdAt.toISOString(),
-      },
-      accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
-      expiresIn: Math.floor(
-        (tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000,
-      ),
+      user: apiResponse.user
+        ? {
+          id: apiResponse.user.id,
+          email: apiResponse.user.email,
+          name: apiResponse.user.name || "User",
+          picture: apiResponse.user.picture,
+          authMethod: apiResponse.user.auth_method || "oauth",
+          createdAt: apiResponse.user.created_at,
+        }
+        : undefined,
+      accessToken: apiResponse.access_token,
+      refreshToken: apiResponse.refresh_token,
+      expiresIn: apiResponse.expires_in,
     };
 
+    console.log(
+      `✅ Native auth successful for ${platform}:`,
+      providerData.email,
+    );
     event.json(200, response);
   } catch (error) {
     console.error("Native authentication error:", error);
