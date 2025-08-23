@@ -195,7 +195,12 @@ async function trySessionAuth(
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (result?.session && result?.user) {
-      return result;
+      return {
+        ...result,
+        isValid: result.success || true,
+        session: result.session,
+        user: result.user,
+      };
     }
 
     // Handle expired sessions if allowed
@@ -207,7 +212,7 @@ async function trySessionAuth(
     console.error("Session authentication error:", error);
   }
 
-  return { session: null, user: null };
+  return { session: null, user: null, isValid: false };
 }
 
 /**

@@ -1,3 +1,7 @@
+// WARNING: This file still contains database operations that need to be migrated to hamrah-api
+// WebAuthn operations are complex and require careful migration to maintain security
+// TODO: Add WebAuthn endpoints to hamrah-api and migrate these operations
+
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,

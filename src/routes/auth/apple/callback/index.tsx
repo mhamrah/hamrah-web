@@ -1,11 +1,7 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getAppleProvider } from "~/lib/auth/providers";
-import { findOrCreateUser } from "~/lib/auth/user-service";
-import {
-  generateSessionToken,
-  createSession,
-  setSessionTokenCookie,
-} from "~/lib/auth/session";
+import { setSessionTokenCookie } from "~/lib/auth/session";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // CSRF protection handled at entry point level
 // Allows POST from https://appleid.apple.com to this specific route only
@@ -33,21 +29,33 @@ export const onPost: RequestHandler = async (event) => {
   const idTokenPayload = JSON.parse(atob(tokens.idToken().split(".")[1]));
 
   try {
-    // Find or create user using common service
-    const userId = await findOrCreateUser(event, {
+    // Create user and session via API
+    const apiClient = createApiClient(event);
+    const userResult = await apiClient.createUser({
       email: idTokenPayload.email,
       name: idTokenPayload.name,
-      picture: null, // Apple doesn't provide profile pictures
+      picture: undefined, // Apple doesn't provide profile pictures
+      auth_method: "apple",
       provider: "apple",
-      providerId: idTokenPayload.sub,
+      provider_id: idTokenPayload.sub,
+      platform: "web",
+      user_agent: event.request.headers.get("User-Agent") || undefined,
     });
 
-    // Create session
-    const sessionToken = generateSessionToken();
-    const session = await createSession(event, sessionToken, userId);
+    if (!userResult.success || !userResult.user) {
+      throw new Error("Failed to create/update user");
+    }
 
-    // Set session cookie
-    setSessionTokenCookie(event, sessionToken, session.expiresAt);
+    // Create web session via API
+    const sessionResult = await apiClient.createSession({
+      user_id: userResult.user.id,
+      platform: "web",
+    });
+
+    if (sessionResult.success && sessionResult.access_token) {
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+      setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
+    }
 
     // Clear OAuth state cookie
     event.cookie.delete("apple_oauth_state");

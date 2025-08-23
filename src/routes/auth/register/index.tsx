@@ -48,54 +48,53 @@ const completePasskeyRegister = server$(async function (
   name: string,
 ) {
   const { verifyWebAuthnRegistration } = await import("~/lib/auth/webauthn");
-  const { generateSessionToken, createSession, setSessionTokenCookie } =
-    await import("~/lib/auth/session");
-  const { generateUserId } = await import("~/lib/auth/utils");
-  const { getDB, users } = await import("~/lib/db");
+  const { setSessionTokenCookie } = await import("~/lib/auth/session");
+  const { createApiClient } = await import("~/lib/auth/api-client");
 
   try {
-    const db = getDB(this as any);
-
-    // Create new user
-    const userId = generateUserId();
-    const newUser = {
-      id: userId,
+    // Create user via API
+    const apiClient = createApiClient(this as any);
+    const userResult = await apiClient.createUser({
       email,
       name,
-      picture: null,
-      emailVerified: null,
-      authMethod: "webauthn",
-      provider: null,
-      providerId: null,
-      lastLoginPlatform: null,
-      lastLoginAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      picture: undefined,
+      auth_method: "webauthn",
+      provider: "webauthn",
+      provider_id: "", // Will be set after registration
+      platform: "web",
+      user_agent: this.request?.headers?.get("User-Agent") || undefined,
+    });
 
-    await db.insert(users).values(newUser);
+    if (!userResult.success || !userResult.user) {
+      throw new Error("Failed to create user");
+    }
 
     // Verify the registration
     const result = await verifyWebAuthnRegistration(
       this as any,
       response,
       challengeId,
-      newUser,
+      undefined, // User is passed via context but WebAuthn lib will handle internally
     );
 
     if (!result.verified) {
       throw new Error("Registration verification failed");
     }
 
-    // Create session
-    const sessionToken = generateSessionToken();
-    await createSession(this as any, sessionToken, newUser.id);
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-    setSessionTokenCookie(this as any, sessionToken, expiresAt);
+    // Create session via API
+    const sessionResult = await apiClient.createSession({
+      user_id: userResult.user.id,
+      platform: "web",
+    });
+
+    if (sessionResult.success && sessionResult.access_token) {
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+      setSessionTokenCookie(this as any, sessionResult.access_token, expiresAt);
+    }
 
     return {
       success: true,
-      user: result.user || newUser,
+      user: result.user || userResult.user,
     };
   } catch (error: any) {
     console.error("Complete passkey registration error:", error);

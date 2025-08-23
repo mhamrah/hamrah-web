@@ -18,8 +18,6 @@ const passkeyAuthServer = server$(async function (this: any, email?: string) {
     generateWebAuthnAuthenticationOptions,
     generateWebAuthnRegistrationOptionsForNewUser,
   } = await import("~/lib/auth/webauthn");
-  const { getDB, users } = await import("~/lib/db");
-  const { eq } = await import("drizzle-orm");
 
   try {
     // First, try to generate authentication options (existing user)
@@ -55,45 +53,20 @@ const passkeyAuthServer = server$(async function (this: any, email?: string) {
           needsProfile: true, // Indicate that we need to collect email/name later
         };
       } else {
-        // Email provided, check if user exists
-        const db = getDB(this as any);
-        const existingUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email))
-          .limit(1);
-
-        if (existingUser.length > 0) {
-          // User exists but has no passkeys, create registration options
-          const regOptions =
-            await generateWebAuthnRegistrationOptionsForNewUser(
-              this as any,
-              email,
-              existingUser[0].name || "User",
-            );
-          return {
-            success: true,
-            type: "registration",
-            options: regOptions,
+        // New user, create registration options
+        const regOptions =
+          await generateWebAuthnRegistrationOptionsForNewUser(
+            this as any,
             email,
-            existingUser: existingUser[0],
-          };
-        } else {
-          // New user, create registration options
-          const regOptions =
-            await generateWebAuthnRegistrationOptionsForNewUser(
-              this as any,
-              email,
-              "New User", // Will be updated after registration
-            );
-          return {
-            success: true,
-            type: "registration",
-            options: regOptions,
-            email,
-            needsProfile: email ? false : true,
-          };
-        }
+            "New User", // Will be updated after registration
+          );
+        return {
+          success: true,
+          type: "registration",
+          options: regOptions,
+          email,
+          needsProfile: email ? false : true,
+        };
       }
     }
   } catch (error: any) {
@@ -112,11 +85,8 @@ const completePasskeyAuth = server$(async function (
 ) {
   const { verifyWebAuthnAuthentication, verifyWebAuthnRegistration } =
     await import("~/lib/auth/webauthn");
-  const { generateSessionToken, createSession, setSessionTokenCookie } =
-    await import("~/lib/auth/session");
-  const { generateUserId } = await import("~/lib/auth/utils");
-  const { getDB, users } = await import("~/lib/db");
-  const { eq } = await import("drizzle-orm");
+  const { setSessionTokenCookie } = await import("~/lib/auth/session");
+  const { createApiClient } = await import("~/lib/auth/api-client");
 
   try {
     if (type === "authentication") {
@@ -136,68 +106,57 @@ const completePasskeyAuth = server$(async function (
 
       return { success: true, user: result.user };
     } else {
-      // New user registration
-      const db = getDB(this as any);
-      let user = null;
-
-      // Check if user already exists (for cases where they have OAuth but adding passkey)
-      if (email) {
-        const existingUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, email))
-          .limit(1);
-
-        if (existingUser.length > 0) {
-          user = existingUser[0];
-        }
-      }
-
-      // If no existing user, create one
-      if (!user) {
-        const userId = generateUserId();
-        const newUser = {
-          id: userId,
-          email: email || `user-${userId}@temp.com`, // Temporary email if none provided
-          name: name || "New User", // Temporary name if none provided
-          picture: null,
-          emailVerified: null,
-          authMethod: "webauthn",
-          provider: null, // Passkey-only user
-          providerId: null,
-          lastLoginPlatform: null,
-          lastLoginAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        await db.insert(users).values(newUser);
-        user = newUser;
-      }
-
-      // Verify the registration
+      // For registration, we need to verify WebAuthn first, then create the user
       const result = await verifyWebAuthnRegistration(
         this as any,
         response,
         challengeId,
-        user,
+        undefined, // User will be created after verification
       );
 
       if (!result.verified) {
         throw new Error("Registration verification failed");
       }
 
-      // Create session
-      const sessionToken = generateSessionToken();
-      await createSession(this as any, sessionToken, user.id);
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(this as any, sessionToken, expiresAt);
+      // Create user via API if needed
+      if (email && email !== "user@example.com") {
+        const apiClient = createApiClient(this as any);
+        const apiResult = await apiClient.createUser({
+          email: email,
+          name: name || "User",
+          picture: undefined,
+          auth_method: "webauthn",
+          provider: "webauthn",
+          provider_id: result.credentialId || "",
+          platform: "web",
+          user_agent: this.request?.headers?.get("User-Agent") || undefined,
+        });
 
+        if (apiResult.success && apiResult.user) {
+          // Create web session via API
+          const sessionResult = await apiClient.createSession({
+            user_id: apiResult.user.id,
+            platform: "web",
+          });
+
+          if (sessionResult.success && sessionResult.access_token) {
+            const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+            setSessionTokenCookie(this as any, sessionResult.access_token, expiresAt);
+
+            return {
+              success: true,
+              user: apiResult.user,
+              needsProfile: false,
+            };
+          }
+        }
+      }
+
+      // Fallback for anonymous/temp users - they still need to complete profile
       return {
         success: true,
-        user: result.user || user,
-        needsProfile:
-          !email || email.includes("@temp.com") || !name || name === "New User",
+        user: result.user,
+        needsProfile: !email || email.includes("@example.com") || !name || name === "New User",
       };
     }
   } catch (error: any) {
