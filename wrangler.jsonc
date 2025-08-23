@@ -76,10 +76,10 @@
    * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
    */
   "services": [
-    { 
-      "binding": "AUTH_API", 
+    {
+      "binding": "AUTH_API",
       "service": "hamrah-api",
-      "environment": "production"
-    }
-  ]
+      "environment": "production",
+    },
+  ],
 }

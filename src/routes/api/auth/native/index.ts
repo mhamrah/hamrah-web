@@ -1,6 +1,9 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { verifyAppleToken, verifyGoogleToken } from "~/lib/auth/providers";
-import { createAuthApiClient, validateClientPlatform } from "~/lib/auth/auth-api-client";
+import {
+  createAuthApiClient,
+  validateClientPlatform,
+} from "~/lib/auth/auth-api-client";
 // Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
@@ -38,7 +41,15 @@ interface NativeAuthResponse {
 export const onPost: RequestHandler = async (event) => {
   try {
     const body = (await event.parseBody()) as NativeAuthRequest;
-    const { provider, credential, email, name, picture, platform = "api", client_attestation } = body;
+    const {
+      provider,
+      credential,
+      email,
+      name,
+      picture,
+      platform = "api",
+      client_attestation,
+    } = body;
     const userAgent = event.request.headers.get("User-Agent") || "";
     const origin = event.request.headers.get("Origin") || "";
 
@@ -51,7 +62,12 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     // Validate client platform and requirements
-    const platformValidation = validateClientPlatform(platform, userAgent, origin, client_attestation);
+    const platformValidation = validateClientPlatform(
+      platform,
+      userAgent,
+      origin,
+      client_attestation,
+    );
     if (!platformValidation.valid) {
       console.warn(`🚫 Invalid client platform: ${platformValidation.reason}`);
       event.json(403, {
@@ -91,7 +107,7 @@ export const onPost: RequestHandler = async (event) => {
 
     // Create auth API client and call internal API
     const authApi = createAuthApiClient(event);
-    
+
     const apiResponse = await authApi.createTokens({
       email: providerData.email,
       name: providerData.name,
@@ -99,7 +115,7 @@ export const onPost: RequestHandler = async (event) => {
       auth_method: provider,
       provider,
       provider_id: providerData.providerId,
-      platform: platform as 'web' | 'ios',
+      platform: platform as "web" | "ios",
       user_agent: userAgent,
       client_attestation,
     });
@@ -116,22 +132,26 @@ export const onPost: RequestHandler = async (event) => {
     // Return successful response with tokens
     const response: NativeAuthResponse = {
       success: true,
-      user: apiResponse.user ? {
-        id: apiResponse.user.id,
-        email: apiResponse.user.email,
-        name: apiResponse.user.name || "User",
-        picture: apiResponse.user.picture,
-        authMethod: apiResponse.user.auth_method || "oauth",
-        createdAt: apiResponse.user.created_at,
-      } : undefined,
+      user: apiResponse.user
+        ? {
+            id: apiResponse.user.id,
+            email: apiResponse.user.email,
+            name: apiResponse.user.name || "User",
+            picture: apiResponse.user.picture,
+            authMethod: apiResponse.user.auth_method || "oauth",
+            createdAt: apiResponse.user.created_at,
+          }
+        : undefined,
       accessToken: apiResponse.access_token,
       refreshToken: apiResponse.refresh_token,
       expiresIn: apiResponse.expires_in,
     };
 
-    console.log(`✅ Native auth successful for ${platform}:`, providerData.email);
+    console.log(
+      `✅ Native auth successful for ${platform}:`,
+      providerData.email,
+    );
     event.json(200, response);
-
   } catch (error) {
     console.error("Native authentication error:", error);
 
