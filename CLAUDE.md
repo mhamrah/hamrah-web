@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Qwik-based web application with Cloudflare Pages deployment support. The app uses Drizzle ORM for database operations with a D1 database on Cloudflare.
+This is a Qwik-based web application with Cloudflare Pages deployment support. The app follows an API-first architecture where all database operations are handled by hamrah-api via Cloudflare service bindings.
 
 ## Core Technologies
 
 - [Qwik](https://qwik.dev/) - Core framework
 - [QwikCity](https://qwik.dev/qwikcity/overview/) - Full-stack framework built on Qwik
 - [Cloudflare Pages](https://pages.cloudflare.com/) - Deployment platform
-- [Drizzle ORM](https://orm.drizzle.team/) - Database ORM
+- [Cloudflare Service Bindings](https://developers.cloudflare.com/workers/runtime-apis/service-bindings/) - Internal API communication
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
 - [TypeScript](https://www.typescriptlang.org/) - Programming language
 
@@ -68,19 +68,13 @@ pnpm serve
 pnpm deploy
 ```
 
-### Database
-
-```bash
-# Generate Drizzle migration files
-pnpm dlx drizzle-kit generate
-```
-
 ## Key Files and Directories
 
 - `src/routes/` - Contains page routes and layouts
 - `src/components/` - Reusable components
-- `drizzle/migrations/` - Database migrations
-- `adapters/cloudflare-pages/` - Cloudflare Pages adapter configuration
+- `src/lib/auth/api-client.ts` - Centralized API client for hamrah-api communication
+- `src/lib/auth/session.ts` - Session management via API calls
+- `worker-configuration.d.ts` - TypeScript definitions for Cloudflare Worker environment
 - `public/` - Static assets
 
 ## Development Guidelines and Best Practices
@@ -97,7 +91,10 @@ pnpm dlx drizzle-kit generate
 
 ### Database and Architecture Standards
 
-- **Never mix database access code with qwik api functions in the same file. Always put db code in a separate database layer project space with methods which are called from the web layer**
+- **NO DIRECT DATABASE ACCESS**: This web application does NOT access databases directly. All data operations must go through hamrah-api via the API client.
+- **Use HamrahApiClient**: All database operations should use the centralized `createApiClient()` function from `~/lib/auth/api-client.ts`
+- **Service Bindings Only**: Internal API calls use Cloudflare service bindings (AUTH_API) with internal authentication headers
+- **API-First Architecture**: The web layer handles only UI, OAuth flows, and client-side logic
 
 ### Tailwind CSS Standards
 
@@ -142,8 +139,36 @@ tsconfig.json
 - **Always create a PR to merge to main. Never merge to main directly.**
 - **Create a succinct commit message for the PR and outline the change in the description.**
 
+## Architecture Overview
+
+### Authentication Flow
+1. **OAuth Integration**: Handles Apple/Google OAuth flows in the web layer
+2. **API Communication**: All user creation, session management via hamrah-api
+3. **Session Storage**: Session tokens stored in HTTP-only cookies
+4. **WebAuthn Support**: Passkey authentication flows call hamrah-api WebAuthn endpoints
+
+### API Integration
+- **Internal Endpoints**: Use service bindings with `X-Internal-Service` and `X-Internal-Key` headers
+- **Public Endpoints**: Standard REST API calls to hamrah-api for client-side operations
+- **Error Handling**: Centralized error handling in API client with proper error propagation
+
 ## Important Notes
 
 - The project uses a pre-commit hook to run linting before commits.
-- The app is configured to deploy to Cloudflare Pages and uses Cloudflare D1 as its database.
+- The app is configured to deploy to Cloudflare Pages with service binding to hamrah-api.
+- **NO DATABASE**: This app does NOT have its own database - all data comes from hamrah-api.
 - Always run lint and ensure zero errors or warnings before checking in code.
+
+## Environment Variables Required
+
+```bash
+# Cloudflare Worker Environment
+INTERNAL_API_KEY=<secret-key-for-internal-api-calls>
+AUTH_API=<service-binding-to-hamrah-api>
+
+# OAuth Configuration
+GOOGLE_CLIENT_ID=<google-oauth-client-id>
+GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
+APPLE_CLIENT_ID=<apple-oauth-client-id>
+APPLE_CLIENT_SECRET=<apple-oauth-client-secret>
+```
