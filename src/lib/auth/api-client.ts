@@ -51,31 +51,26 @@ export interface SessionValidationRequest {
 }
 
 /**
- * API client for hamrah-api service calls
- * Replaces all direct database access in the web layer
+ * API client for hamrah-api service calls via Cloudflare service bindings
+ * Relies on Cloudflare's built-in service binding authentication
  */
 export class HamrahApiClient {
   private event: RequestEventCommon;
   private authApiService: Fetcher;
-  private internalApiKey: string;
 
   constructor(event: RequestEventCommon) {
     this.event = event;
     this.authApiService = event.platform.env.AUTH_API as Fetcher;
-    this.internalApiKey = event.platform.env.INTERNAL_API_KEY;
 
     if (!this.authApiService) {
       throw new Error("AUTH_API service binding not configured");
-    }
-    if (!this.internalApiKey) {
-      throw new Error("INTERNAL_API_KEY not configured");
     }
   }
 
   private async makeInternalApiCall(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
     const headers: Record<string, string> = {
-      'X-Internal-Service': 'hamrah-app',
-      'X-Internal-Key': this.internalApiKey,
+      'X-Service-Name': 'hamrah-app', // For logging and identification
+      'X-Request-ID': crypto.randomUUID(), // For request tracing
     };
 
     if (body) {

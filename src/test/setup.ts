@@ -73,6 +73,9 @@ export function createMockRequestEvent(
         APPLE_KEY_ID: "test-key-id",
         APPLE_CERTIFICATE: "test-certificate",
         COOKIE_SECRET: "test-cookie-secret-32-chars-long",
+        AUTH_API: {
+          fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true }), { status: 200 })),
+        },
         DB: {} as any, // Mock D1 database for drizzle
       },
       cf: {},

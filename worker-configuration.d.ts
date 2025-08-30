@@ -16,7 +16,6 @@ declare namespace Cloudflare {
     APPLE_KEY_ID: string;
     APPLE_CERTIFICATE: string;
     ASSET: Fetcher;
-    INTERNAL_API_KEY: string;
     AUTH_API: Fetcher;
   }
 }

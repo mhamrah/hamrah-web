@@ -70,7 +70,10 @@ describe('OAuth Provider Token Verification', () => {
         {},
         {
           issuer: ['https://accounts.google.com', 'accounts.google.com'],
-          audience: 'your-google-client-id',
+          audience: [
+            'your-google-client-id',
+            '107139115848-jvf449cojr174ocan4vpanddh8i48oko.apps.googleusercontent.com',
+          ],
         }
       );
     });
@@ -169,7 +172,7 @@ describe('OAuth Provider Token Verification', () => {
         {},
         {
           issuer: 'https://appleid.apple.com',
-          audience: ['your-apple-client-id', 'com.hamrah.HamrahIOSApp'],
+          audience: ['your-apple-client-id', 'app.hamrah.ios'],
         }
       );
     });

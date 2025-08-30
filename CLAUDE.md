@@ -163,7 +163,6 @@ tsconfig.json
 
 ```bash
 # Cloudflare Worker Environment
-INTERNAL_API_KEY=<secret-key-for-internal-api-calls>
 AUTH_API=<service-binding-to-hamrah-api>
 
 # OAuth Configuration

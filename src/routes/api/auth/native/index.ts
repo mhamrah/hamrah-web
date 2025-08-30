@@ -109,12 +109,8 @@ export const onPost: RequestHandler = async (event) => {
     if (name) providerData.name = name;
     if (picture) providerData.picture = picture;
 
-    // Call hamrah-api internal endpoint - this handles all DB operations
-    const internalApiKey = event.platform.env.INTERNAL_API_KEY;
-    
-    if (!internalApiKey) {
-      throw new Error("INTERNAL_API_KEY not configured");
-    }
+    // Call hamrah-api internal endpoint via service binding - this handles all DB operations
+    const authApiService = event.platform.env.AUTH_API as Fetcher;
 
     const apiRequest = {
       email: providerData.email,
@@ -128,14 +124,13 @@ export const onPost: RequestHandler = async (event) => {
       client_attestation,
     };
 
-    // Call the internal API via service binding
-    const authApiService = event.platform.env.AUTH_API as Fetcher;
+    // Call the internal API via service binding (authentication handled by Cloudflare)
     const apiResponse = await authApiService.fetch('https://api/internal/tokens', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Internal-Service': 'hamrah-app',
-        'X-Internal-Key': internalApiKey,
+        'X-Service-Name': 'hamrah-app', // For logging and identification
+        'X-Request-ID': crypto.randomUUID(), // For request tracing
       },
       body: JSON.stringify(apiRequest),
     });

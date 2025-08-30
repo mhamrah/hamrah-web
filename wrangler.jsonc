@@ -7,7 +7,9 @@
   "name": "hamrah-app",
   "main": "./dist/_worker.js",
   "compatibility_date": "2025-08-02",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
     "binding": "ASSET",
     "directory": "./dist",
@@ -40,15 +42,15 @@
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
    */
-  "placement": { "mode": "smart" },
-
+  "placement": {
+    "mode": "smart"
+  },
   /**
    * Bindings
    * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
    * databases, object storage, AI inference, real-time communication and more.
    * https://developers.cloudflare.com/workers/runtime-apis/bindings/
    */
-
   /**
    * Environment Variables
    * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
@@ -64,20 +66,15 @@
    * Note: Use secrets to store sensitive data.
    * https://developers.cloudflare.com/workers/configuration/secrets/
    */
-
   /**
    * Static Assets
    * https://developers.cloudflare.com/workers/static-assets/binding/
    */
   // "assets": { "directory": "./public/", "binding": "ASSETS" },
-
   /**
    * Service Bindings (communicate between multiple Workers)
    * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
    */
-<<<<<<< Updated upstream
-  // "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
-=======
   "services": [
     {
       "binding": "AUTH_API",
@@ -85,5 +82,4 @@
       "environment": "production",
     },
   ],
->>>>>>> Stashed changes
 }
