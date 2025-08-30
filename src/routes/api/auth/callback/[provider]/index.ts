@@ -1,15 +1,9 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getGoogleProvider, getAppleProvider } from "~/lib/auth/providers";
-import { findOrCreateUser } from "~/lib/auth/user-service";
-import { createTokenPair, type Platform } from "~/lib/auth/tokens";
 import { validateOAuthState, parseCallbackParams } from "~/lib/auth/pkce";
-import {
-  createSession,
-  generateSessionToken,
-  setSessionTokenCookie,
-} from "~/lib/auth/session";
-import { getDB, users } from "~/lib/db";
-import { eq } from "drizzle-orm";
+import { setSessionTokenCookie } from "~/lib/auth/session";
+import { createApiClient } from "~/lib/auth/api-client";
+import type { Platform } from "~/lib/auth/tokens";
 
 /**
  * Universal OAuth callback endpoint
@@ -82,23 +76,38 @@ export const onGet: RequestHandler = async (event) => {
       codeVerifier,
     );
 
-    // Find or create user
-    const userId = await findOrCreateUser(event, userProfile);
+    // Create user and session via API
+    const apiClient = createApiClient(event);
+    
+    // Create user via API
+    const userResult = await apiClient.createUser({
+      email: userProfile.email,
+      name: userProfile.name,
+      picture: userProfile.picture,
+      auth_method: provider,
+      provider: userProfile.provider,
+      provider_id: userProfile.providerId,
+      platform: "web",
+      user_agent: event.request.headers.get("User-Agent") || undefined,
+    });
 
-    // Update user login tracking
-    const db = getDB(event);
-    await db
-      .update(users)
-      .set({
-        lastLoginPlatform: "web",
-        lastLoginAt: new Date(),
-      })
-      .where(eq(users.id, userId));
+    if (!userResult.success || !userResult.user) {
+      throw new Error("Failed to create/update user");
+    }
 
-    // Create web session
-    const sessionToken = generateSessionToken();
-    const session = await createSession(event, sessionToken, userId);
-    setSessionTokenCookie(event, sessionToken, session.expiresAt);
+    // Create web session via API
+    const sessionResult = await apiClient.createSession({
+      user_id: userResult.user.id,
+      platform: "web",
+    });
+
+    if (!sessionResult.success || !sessionResult.access_token) {
+      throw new Error("Failed to create session");
+    }
+
+    // Set session cookie
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+    setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
 
     // Clear OAuth cookies
     event.cookie.delete(`${provider}_oauth_state`);
@@ -153,46 +162,35 @@ export const onPost: RequestHandler = async (event) => {
       code_verifier,
     );
 
-    // Find or create user
-    const userId = await findOrCreateUser(event, userProfile);
+    // Create user and tokens via API
+    const apiClient = createApiClient(event);
+    
+    // Create tokens for mobile/API access
+    const tokenResult = await apiClient.createTokens({
+      email: userProfile.email,
+      name: userProfile.name,
+      picture: userProfile.picture,
+      auth_method: provider,
+      provider: userProfile.provider,
+      provider_id: userProfile.providerId,
+      platform: platform as "web" | "ios",
+      user_agent: event.request.headers.get("User-Agent") || undefined,
+    });
 
-    // Update user login tracking
-    const db = getDB(event);
-    await db
-      .update(users)
-      .set({
-        lastLoginPlatform: platform,
-        lastLoginAt: new Date(),
-      })
-      .where(eq(users.id, userId));
-
-    // Create token pair for mobile/API access
-    const userAgent = event.request.headers.get("User-Agent") || undefined;
-    const tokenPair = await createTokenPair(event, userId, platform, userAgent);
-
-    // Get user info for response
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (user.length === 0) {
-      throw new Error("User not found after creation");
+    if (!tokenResult.success || !tokenResult.user || !tokenResult.access_token) {
+      throw new Error("Failed to create user and tokens");
     }
 
     const response: TokenResponse = {
-      access_token: tokenPair.accessToken,
-      refresh_token: tokenPair.refreshToken,
+      access_token: tokenResult.access_token!,
+      refresh_token: tokenResult.refresh_token || "",
       token_type: "Bearer",
-      expires_in: Math.floor(
-        (tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000,
-      ),
+      expires_in: tokenResult.expires_in || 3600,
       user: {
-        id: user[0].id,
-        email: user[0].email,
-        name: user[0].name || "User",
-        picture: user[0].picture,
+        id: tokenResult.user.id,
+        email: tokenResult.user.email,
+        name: tokenResult.user.name || "User",
+        picture: tokenResult.user.picture,
       },
     };
 

@@ -1,8 +1,10 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { getDB, users } from "~/lib/db";
-import { eq } from "drizzle-orm";
 import { verifyAppleToken, verifyGoogleToken } from "~/lib/auth/providers";
-import { createTokenPair, type Platform } from "~/lib/auth/tokens";
+
+// Cloudflare service binding types
+interface Fetcher {
+  fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
+}
 // Rate limiting removed with OIDC cleanup
 
 interface NativeAuthRequest {
@@ -11,6 +13,8 @@ interface NativeAuthRequest {
   email?: string;
   name?: string;
   picture?: string;
+  platform?: "web" | "ios";
+  client_attestation?: string; // For iOS App Attestation
 }
 
 interface NativeAuthResponse {
@@ -37,14 +41,20 @@ interface NativeAuthResponse {
  */
 export const onPost: RequestHandler = async (event) => {
   try {
-    // CORS protection for mobile apps
+    const body = (await event.parseBody()) as NativeAuthRequest;
+    const {
+      provider,
+      credential,
+      email,
+      name,
+      picture,
+      platform = "web",
+      client_attestation,
+    } = body;
     const userAgent = event.request.headers.get("User-Agent") || "";
     const origin = event.request.headers.get("Origin") || "";
 
-    // Allow requests from:
-    // 1. iOS app (CFNetwork user agent)
-    // 2. Local development
-    // 3. Trusted web origins
+    // Basic client validation - more detailed validation is in the API
     const isValidRequest =
       userAgent.includes("CFNetwork") || // iOS requests
       userAgent.includes("hamrahIOS") || // iOS app identifier
@@ -63,11 +73,6 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Rate limiting removed with OIDC cleanup
-
-    const body = (await event.parseBody()) as NativeAuthRequest;
-    const { provider, credential, email, name, picture } = body;
-
     if (!provider || !credential) {
       event.json(400, {
         success: false,
@@ -76,6 +81,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    // Verify the credential with the appropriate provider
     let providerData: {
       email: string;
       name?: string;
@@ -83,7 +89,6 @@ export const onPost: RequestHandler = async (event) => {
       providerId: string;
     };
 
-    // Verify the credential with the appropriate provider
     switch (provider) {
       case "apple":
         providerData = await verifyAppleToken(credential, event);
@@ -104,102 +109,80 @@ export const onPost: RequestHandler = async (event) => {
     if (name) providerData.name = name;
     if (picture) providerData.picture = picture;
 
-    const db = getDB(event);
-    const now = new Date();
-
-    // Check if user already exists
-    const existingUsers = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, providerData.email));
-
-    let user = existingUsers[0];
-
-    if (existingUsers.length === 0) {
-      // Create new user
-      const userId = crypto.randomUUID();
-
-      await db.insert(users).values({
-        id: userId,
-        email: providerData.email,
-        name: providerData.name || null,
-        picture: providerData.picture || null,
-        emailVerified: new Date(), // Provider-verified email
-        authMethod: provider,
-        providerId: providerData.providerId,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      user = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId))
-        .then((rows) => rows[0]);
-
-      console.log(`✅ Created new user via ${provider}:`, providerData.email);
-    } else {
-      // Update existing user if needed
-      const updates: any = {
-        updatedAt: now,
-        lastLoginAt: now,
-      };
-
-      // Update auth method and provider ID if this is a new provider for existing user
-      if (user.authMethod !== provider) {
-        updates.authMethod = provider;
-        updates.providerId = providerData.providerId;
-      }
-
-      // Update profile info if provided and different
-      if (providerData.name && user.name !== providerData.name) {
-        updates.name = providerData.name;
-      }
-      if (providerData.picture && user.picture !== providerData.picture) {
-        updates.picture = providerData.picture;
-      }
-
-      await db.update(users).set(updates).where(eq(users.id, user.id));
-
-      // Refresh user data
-      user = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, user.id))
-        .then((rows) => rows[0]);
-
-      console.log(
-        `✅ Updated existing user via ${provider}:`,
-        providerData.email,
-      );
+    // Call hamrah-api internal endpoint - this handles all DB operations
+    const internalApiKey = event.platform.env.INTERNAL_API_KEY;
+    
+    if (!internalApiKey) {
+      throw new Error("INTERNAL_API_KEY not configured");
     }
 
-    // Generate token pair
-    const tokenPair = await createTokenPair(
-      event,
-      user.id,
-      "api" as Platform,
-      event.request.headers.get("User-Agent") || "Unknown",
-    );
-
-    // Return successful response
-    const response: NativeAuthResponse = {
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name || "User",
-        picture: user.picture,
-        authMethod: user.authMethod || "oauth",
-        createdAt: user.createdAt.toISOString(),
-      },
-      accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
-      expiresIn: Math.floor(
-        (tokenPair.accessExpiresAt.getTime() - Date.now()) / 1000,
-      ),
+    const apiRequest = {
+      email: providerData.email,
+      name: providerData.name,
+      picture: providerData.picture,
+      auth_method: provider,
+      provider,
+      provider_id: providerData.providerId,
+      platform: platform as "web" | "ios",
+      user_agent: userAgent,
+      client_attestation,
     };
 
+    // Call the internal API via service binding
+    const authApiService = event.platform.env.AUTH_API as Fetcher;
+    const apiResponse = await authApiService.fetch('https://api/internal/tokens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Service': 'hamrah-app',
+        'X-Internal-Key': internalApiKey,
+      },
+      body: JSON.stringify(apiRequest),
+    });
+
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.text();
+      throw new Error(`API call failed: ${apiResponse.status} - ${errorData}`);
+    }
+
+    const apiResult = await apiResponse.json() as {
+      success: boolean;
+      user?: {
+        id: string;
+        email: string;
+        name?: string;
+        picture?: string;
+        auth_method?: string;
+        created_at: string;
+      };
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+
+    // Return the response from the API
+    const response: NativeAuthResponse = {
+      success: true,
+      user: apiResult.user
+        ? {
+          id: apiResult.user.id,
+          email: apiResult.user.email,
+          name: apiResult.user.name || "User",
+          picture: apiResult.user.picture || null,
+          authMethod: apiResult.user.auth_method || "oauth",
+          createdAt: apiResult.user.created_at,
+        }
+        : undefined,
+      accessToken: apiResult.access_token,
+      refreshToken: apiResult.refresh_token,
+      expiresIn: apiResult.expires_in,
+    };
+
+    console.log(
+      `✅ Native auth successful for ${platform}:`,
+      providerData.email,
+    );
     event.json(200, response);
   } catch (error) {
     console.error("Native authentication error:", error);

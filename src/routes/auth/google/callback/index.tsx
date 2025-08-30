@@ -1,11 +1,7 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getGoogleProvider } from "~/lib/auth/providers";
-import { findOrCreateUser } from "~/lib/auth/user-service";
-import {
-  generateSessionToken,
-  createSession,
-  setSessionTokenCookie,
-} from "~/lib/auth/session";
+import { setSessionTokenCookie } from "~/lib/auth/session";
+import { createApiClient } from "~/lib/auth/api-client";
 
 export const onGet: RequestHandler = async (event) => {
   const url = new URL(event.request.url);
@@ -81,24 +77,37 @@ export const onGet: RequestHandler = async (event) => {
   // - at_hash: Access token hash
 
   try {
-    // Find or create user using common service
-    const userId = await findOrCreateUser(event, {
+    // Create user and session via API
+    const apiClient = createApiClient(event);
+    const userResult = await apiClient.createUser({
       email: googleUser.email,
       name: googleUser.name,
-      picture: null, // Don't store - will be fetched fresh from session
+      picture: undefined, // Don't store - will be fetched fresh from session
+      auth_method: "google",
       provider: "google",
-      providerId: googleUser.sub, // Use 'sub' claim as the unique provider ID
+      provider_id: googleUser.sub, // Use 'sub' claim as the unique provider ID
+      platform: "web",
+      user_agent: event.request.headers.get("User-Agent") || undefined,
     });
-    // Create session
-    const sessionToken = generateSessionToken();
-    const session = await createSession(event, sessionToken, userId);
 
-    // Note: Fresh profile data (picture, locale, etc.) is not stored in DB
-    // to avoid staleness. For apps requiring up-to-date profile data,
-    // consider storing ID token securely or re-fetching from provider.
+    if (!userResult.success || !userResult.user) {
+      throw new Error("Failed to create/update user");
+    }
 
-    // Set session cookie
-    setSessionTokenCookie(event, sessionToken, session.expiresAt);
+    // Create web session via API
+    const sessionResult = await apiClient.createSession({
+      user_id: userResult.user.id,
+      platform: "web",
+    });
+
+    if (sessionResult.success && sessionResult.access_token) {
+      // Note: Fresh profile data (picture, locale, etc.) is not stored in DB
+      // to avoid staleness. For apps requiring up-to-date profile data,
+      // consider storing ID token securely or re-fetching from provider.
+
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+      setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
+    }
   } catch (error) {
     console.log("could not write to db", error);
     throw error;

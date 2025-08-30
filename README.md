@@ -1,42 +1,48 @@
-# Qwik City App ⚡️
+# Hamrah Web Application
 
-- [Qwik Docs](https://qwik.dev/)
-- [Discord](https://qwik.dev/chat)
-- [Qwik GitHub](https://github.com/QwikDev/qwik)
-- [@QwikDev](https://twitter.com/QwikDev)
-- [Vite](https://vitejs.dev/)
+A Qwik-based web application that provides secure authentication and user management as part of the Hamrah ecosystem. The app follows an API-first architecture, communicating with hamrah-api for all data operations.
 
----
+## Architecture
+
+- **Framework**: [Qwik](https://qwik.dev/) with [QwikCity](https://qwik.dev/qwikcity/overview/)
+- **Deployment**: [Cloudflare Pages](https://pages.cloudflare.com/) with service bindings
+- **Backend**: Connects to hamrah-api via Cloudflare service bindings
+- **Authentication**: OAuth (Apple/Google) + WebAuthn passkeys
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+
+## Key Features
+
+- **Secure Authentication**: Apple Sign-In, Google Sign-In, WebAuthn passkeys
+- **API-First Design**: No direct database access - all data via hamrah-api
+- **Service Bindings**: Internal API communication via Cloudflare Workers
+- **Session Management**: HTTP-only cookies with secure token handling
+- **Responsive Design**: Modern UI with Tailwind CSS
 
 ## Project Structure
 
-This project is using Qwik with [QwikCity](https://qwik.dev/qwikcity/overview/). QwikCity is just an extra set of tools on top of Qwik to make it easier to build a full site, including directory-based routing, layouts, and more.
-
-Inside your project, you'll see the following directory structure:
-
 ```
-├── public/
-│   └── ...
-└── src/
-    ├── components/
-    │   └── ...
-    └── routes/
-        └── ...
+├── public/                 # Static assets
+├── src/
+│   ├── components/         # Reusable UI components
+│   ├── routes/            # Page routes and API endpoints
+│   │   ├── api/           # API route handlers
+│   │   │   ├── auth/      # Authentication endpoints
+│   │   │   └── webauthn/  # WebAuthn passkey endpoints
+│   │   └── auth/          # Authentication pages
+│   ├── lib/
+│   │   └── auth/          # Authentication utilities
+│   │       ├── api-client.ts    # Centralized API client
+│   │       ├── session.ts       # Session management
+│   │       └── providers.ts     # OAuth providers
+│   └── global.css         # Global styles
+├── worker-configuration.d.ts  # Cloudflare Worker types
+└── CLAUDE.md             # Development guidelines
 ```
 
-- `src/routes`: Provides the directory-based routing, which can include a hierarchy of `layout.tsx` layout files, and an `index.tsx` file as the page. Additionally, `index.ts` files are endpoints. Please see the [routing docs](https://qwik.dev/qwikcity/routing/overview/) for more info.
+## Related Projects
 
-- `src/components`: Recommended directory for components.
-
-- `public`: Any static assets, like images, can be placed in the public directory. Please see the [Vite public directory](https://vitejs.dev/guide/assets.html#the-public-directory) for more info.
-
-## Add Integrations and deployment
-
-Use the `npm run qwik add` command to add additional integrations. Some examples of integrations includes: Cloudflare, Netlify or Express Server, and the [Static Site Generator (SSG)](https://qwik.dev/qwikcity/guides/static-site-generation/).
-
-```shell
-npm run qwik add # or `yarn qwik add`
-```
+- **hamrah-api**: Rust/Axum backend API (`../hamrah-api`)
+- **hamrah-ios**: Native iOS application (`../hamrah-ios`)
 
 ## Development
 

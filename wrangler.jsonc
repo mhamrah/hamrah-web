@@ -75,5 +75,15 @@
    * Service Bindings (communicate between multiple Workers)
    * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
    */
+<<<<<<< Updated upstream
   // "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
+=======
+  "services": [
+    {
+      "binding": "AUTH_API",
+      "service": "hamrah-api",
+      "environment": "production",
+    },
+  ],
+>>>>>>> Stashed changes
 }

@@ -88,7 +88,7 @@ export const onPost: RequestHandler = async (event) => {
 
         if (logout_all) {
           // Revoke all tokens for this user
-          tokensRevoked = await revokeAllUserTokens(event, userId);
+          tokensRevoked = await revokeAllUserTokens(event, userId || "");
         } else {
           // Revoke just this token
           const revoked = await revokeToken(event, tokenToRevoke);

@@ -87,7 +87,8 @@ export const onPost: RequestHandler = async (event) => {
         sessionToken,
         verification.user.id,
       );
-      setSessionTokenCookie(event, sessionToken, session.expiresAt);
+      const expiresAt = session.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+      setSessionTokenCookie(event, sessionToken, expiresAt);
     }
 
     event.json(200, {
