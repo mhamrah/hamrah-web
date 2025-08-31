@@ -19,22 +19,18 @@ export default defineConfig({
           COOKIE_SECRET: "test-cookie-secret-32-chars-long",
         },
         cf: {},
-        KV: {
-          // Mock KV store for testing
-          get: async () => null,
-          put: async () => {},
-          delete: async () => {},
-          list: async () => ({ keys: [] }),
-        },
-        D1: {
-          // Mock D1 database for testing
-          prepare: () => ({
-            bind: () => ({ all: async () => [], first: async () => null }),
-            all: async () => [],
-            first: async () => null,
-          }),
-        },
+        delete: async () => { },
+        list: async () => ({ keys: [] }),
       },
+      D1: {
+        // Mock D1 database for testing
+        prepare: () => ({
+          bind: () => ({ all: async () => [], first: async () => null }),
+          all: async () => [],
+          first: async () => null,
+        }),
+      },
+
     }),
     qwikVite(),
     tsconfigPaths(),

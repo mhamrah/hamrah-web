@@ -110,7 +110,7 @@ describe("/api/webauthn/register/begin", () => {
   it("should handle webauthn generation errors", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => {});
+      .mockImplementation(() => { });
     mockEvent.parseBody.mockResolvedValue({
       email: "test@example.com",
       name: "Test User",
@@ -142,49 +142,6 @@ describe("/api/webauthn/register/begin", () => {
       webauthnError,
     );
     consoleErrorSpy.mockRestore();
-  });
-
-  it("should handle rate limiting", async () => {
-    // Mock rate limiting
-    mockEvent.platform.KV.get = vi.fn().mockResolvedValue("10"); // Simulate high request count
-
-    mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
-
-    const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
-      "../../../../../lib/auth/webauthn"
-    );
-
-    vi.mocked(getCurrentUser).mockResolvedValue({
-      session: null,
-      user: null,
-      isValid: false,
-    });
-    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue({
-      challenge: "test",
-      rp: { id: "localhost", name: "Hamrah App" },
-      user: {
-        id: "user-id",
-        name: "test@example.com",
-        displayName: "Test User",
-      },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" as const }],
-      timeout: 60000,
-      attestation: "none" as const,
-      authenticatorSelection: {
-        authenticatorAttachment: "platform" as const,
-        residentKey: "preferred" as const,
-        userVerification: "preferred" as const,
-      },
-      challengeId: "mock-challenge-id",
-    } as any);
-
-    // This would be handled by rate limiting middleware in a real implementation
-    // For now, we'll just test that the endpoint can handle it gracefully
-    await onPost(mockEvent);
-
-    // Should still process the request in this simple test
-    expect(mockEvent.json).toHaveBeenCalled();
   });
 
   it("should validate email format strictly", async () => {

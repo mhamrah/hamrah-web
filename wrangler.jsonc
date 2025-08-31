@@ -7,7 +7,9 @@
   "name": "hamrah-app",
   "main": "./dist/_worker.js",
   "compatibility_date": "2025-08-02",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
     "binding": "ASSET",
     "directory": "./dist",
@@ -22,20 +24,6 @@
     },
   ],
   "preview_urls": true,
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "prod-hamrah-app-auth",
-      "database_id": "aa57b2da-516e-4f48-8595-52ecc887787a",
-      "migrations_dir": "drizzle/migrations",
-    },
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "534fd54e3f4c48f597bfed99d46debf8",
-    },
-  ],
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -56,8 +44,6 @@
   "vars": {
     "GOOGLE_CLIENT_ID": "107139115848-a3110stn9ggh5pft9o80atlh64vfae7q.apps.googleusercontent.com",
     "APPLE_CLIENT_ID": "app.hamrah.web",
-    "APPLE_TEAM_ID": "UR6RM9YCF7",
-    "APPLE_KEY_ID": "KXM222W8KC",
     "NODE_ENV": "production",
   },
   /**
