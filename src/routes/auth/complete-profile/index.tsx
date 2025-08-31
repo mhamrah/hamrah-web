@@ -26,7 +26,10 @@ const updateProfile = server$(async function (email: string, name: string) {
 
     // TODO: Implement user profile update via hamrah-api instead of direct database access
     // For now, return success without actual update
-    console.warn("Profile update not implemented - requires hamrah-api integration", { email, name });
+    console.warn(
+      "Profile update not implemented - requires hamrah-api integration",
+      { email, name },
+    );
 
     return { success: true };
   } catch (error: any) {

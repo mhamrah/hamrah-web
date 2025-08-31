@@ -33,10 +33,7 @@ const deleteCredential = server$(async function (
   try {
     const { deleteWebAuthnCredential } = await import("~/lib/auth/webauthn");
 
-    const success = await deleteWebAuthnCredential(
-      this as any,
-      credentialId,
-    );
+    const success = await deleteWebAuthnCredential(this as any, credentialId);
     if (!success) {
       throw new Error("Failed to delete credential");
     }
@@ -226,9 +223,9 @@ export const PasskeyManagement = component$(() => {
                         type="text"
                         value={editingName.value}
                         onInput$={(e) =>
-                        (editingName.value = (
-                          e.target as HTMLInputElement
-                        ).value)
+                          (editingName.value = (
+                            e.target as HTMLInputElement
+                          ).value)
                         }
                         class="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         placeholder="Enter passkey name"

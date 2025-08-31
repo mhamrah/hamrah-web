@@ -135,7 +135,8 @@ export const onPatch: RequestHandler = async (event) => {
     // For now, return error indicating this functionality needs migration
     event.json(501, {
       error: "not_implemented",
-      error_description: "Profile update functionality is being migrated to hamrah-api",
+      error_description:
+        "Profile update functionality is being migrated to hamrah-api",
     });
   } catch (error) {
     console.error("Profile update error:", error);

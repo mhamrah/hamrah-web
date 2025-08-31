@@ -71,10 +71,7 @@ export const onDelete: RequestHandler = async (event) => {
       return;
     }
 
-    const deleted = await deleteWebAuthnCredential(
-      event,
-      credentialId,
-    );
+    const deleted = await deleteWebAuthnCredential(event, credentialId);
 
     if (!deleted) {
       event.json(404, {

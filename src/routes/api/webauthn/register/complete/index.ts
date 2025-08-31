@@ -79,11 +79,7 @@ export const onPost: RequestHandler = async (event) => {
     // If this was a new user registration, create a session
     if (!existingUser && verification.user) {
       const sessionToken = generateSessionToken();
-      await createSession(
-        event,
-        sessionToken,
-        verification.user.id,
-      );
+      await createSession(event, sessionToken, verification.user.id);
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
       setSessionTokenCookie(event, sessionToken, expiresAt);
     }

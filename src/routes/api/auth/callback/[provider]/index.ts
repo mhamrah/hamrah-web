@@ -187,10 +187,7 @@ export const onPost: RequestHandler = async (event) => {
       platform: platform as "web" | "ios",
     });
 
-    if (
-      !tokenResult.success ||
-      !tokenResult.access_token
-    ) {
+    if (!tokenResult.success || !tokenResult.access_token) {
       throw new Error("Failed to create tokens");
     }
 
