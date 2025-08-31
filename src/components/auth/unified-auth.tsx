@@ -138,11 +138,11 @@ const completePasskeyAuth = server$(async function (
             platform: "web",
           });
 
-          if (sessionResult.success && sessionResult.access_token) {
+          if (sessionResult.success && sessionResult.session) {
             const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
             setSessionTokenCookie(
               this as any,
-              sessionResult.access_token,
+              sessionResult.session,
               expiresAt,
             );
 

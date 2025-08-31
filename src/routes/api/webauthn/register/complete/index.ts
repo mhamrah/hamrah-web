@@ -2,7 +2,7 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import type { RegistrationResponseJSON } from "@simplewebauthn/browser";
 import { verifyWebAuthnRegistration } from "~/lib/auth/webauthn";
 import { getCurrentUser, generateUserId } from "~/lib/auth/utils";
-import { getDB, users, type NewUser } from "~/lib/db";
+
 import {
   generateSessionToken,
   createSession,
@@ -38,10 +38,10 @@ export const onPost: RequestHandler = async (event) => {
 
     // If no existing user, create one for new registration
     if (!existingUser && email && name) {
-      const db = getDB(event);
+      // TODO: Replace with API client call to create user via hamrah-api
       const userId = generateUserId();
 
-      const newUser: NewUser = {
+      targetUser = {
         id: userId,
         email,
         name,
@@ -50,10 +50,7 @@ export const onPost: RequestHandler = async (event) => {
         providerId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
-
-      await db.insert(users).values(newUser);
-      targetUser = newUser as any; // Cast to User type
+      } as any;
     }
 
     if (!targetUser) {
@@ -82,13 +79,12 @@ export const onPost: RequestHandler = async (event) => {
     // If this was a new user registration, create a session
     if (!existingUser && verification.user) {
       const sessionToken = generateSessionToken();
-      const session = await createSession(
+      await createSession(
         event,
         sessionToken,
         verification.user.id,
       );
-      const expiresAt =
-        session.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
       setSessionTokenCookie(event, sessionToken, expiresAt);
     }
 

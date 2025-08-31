@@ -52,9 +52,9 @@ export const onPost: RequestHandler = async (event) => {
       platform: "web",
     });
 
-    if (sessionResult.success && sessionResult.access_token) {
+    if (sessionResult.success && sessionResult.session) {
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
+      setSessionTokenCookie(event, sessionResult.session, expiresAt);
     }
 
     // Clear OAuth state cookie

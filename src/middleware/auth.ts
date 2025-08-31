@@ -7,7 +7,7 @@ import {
   validateSessionToken,
   type SessionValidationResult,
 } from "~/lib/auth/session";
-import type { User } from "~/lib/db";
+import type { ApiUser as User } from "../lib/auth/api-client";
 
 /**
  * Authentication middleware for universal login system

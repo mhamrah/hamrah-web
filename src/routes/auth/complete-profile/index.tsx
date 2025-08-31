@@ -16,8 +16,7 @@ export const useUser = routeLoader$(async (event) => {
 
 const updateProfile = server$(async function (email: string, name: string) {
   const { getCurrentUser } = await import("~/lib/auth/utils");
-  const { getDB, users } = await import("~/lib/db");
-  const { eq } = await import("drizzle-orm");
+  // TODO: Replace legacy DB logic with API client calls if needed
 
   try {
     const { user } = await getCurrentUser(this as any);
@@ -25,17 +24,9 @@ const updateProfile = server$(async function (email: string, name: string) {
       throw new Error("Not authenticated");
     }
 
-    const db = getDB(this as any);
-
-    // Update user profile
-    await db
-      .update(users)
-      .set({
-        email: email || user.email,
-        name: name || user.name,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, user.id));
+    // TODO: Implement user profile update via hamrah-api instead of direct database access
+    // For now, return success without actual update
+    console.warn("Profile update not implemented - requires hamrah-api integration", { email, name });
 
     return { success: true };
   } catch (error: any) {

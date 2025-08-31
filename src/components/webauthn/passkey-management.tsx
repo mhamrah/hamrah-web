@@ -12,18 +12,13 @@ interface PasskeyCredential {
 
 const getCredentials = server$(async function (this: any) {
   try {
-    const { getCurrentUser } = await import("~/lib/auth/utils");
     const { getUserWebAuthnCredentials } = await import("~/lib/auth/webauthn");
 
-    const { user } = await getCurrentUser(this as any);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const credentials = await getUserWebAuthnCredentials(this as any, user.id);
+    const credentials = await getUserWebAuthnCredentials(this as any);
     return credentials.map((cred) => ({
       ...cred,
-      name: cred.name || `Passkey ${cred.id.slice(-8)}`, // Default name if null
+      createdAt: cred.created_at,
+      lastUsed: cred.last_used,
     }));
   } catch (error: any) {
     console.error("Get credentials error:", error);
@@ -36,18 +31,11 @@ const deleteCredential = server$(async function (
   credentialId: string,
 ) {
   try {
-    const { getCurrentUser } = await import("~/lib/auth/utils");
     const { deleteWebAuthnCredential } = await import("~/lib/auth/webauthn");
-
-    const { user } = await getCurrentUser(this as any);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
 
     const success = await deleteWebAuthnCredential(
       this as any,
       credentialId,
-      user.id,
     );
     if (!success) {
       throw new Error("Failed to delete credential");
@@ -66,20 +54,13 @@ const updateCredentialName = server$(async function (
   name: string,
 ) {
   try {
-    const { getCurrentUser } = await import("~/lib/auth/utils");
     const { updateWebAuthnCredentialName } = await import(
       "~/lib/auth/webauthn"
     );
 
-    const { user } = await getCurrentUser(this as any);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
     const success = await updateWebAuthnCredentialName(
       this as any,
       credentialId,
-      user.id,
       name,
     );
     if (!success) {
@@ -245,9 +226,9 @@ export const PasskeyManagement = component$(() => {
                         type="text"
                         value={editingName.value}
                         onInput$={(e) =>
-                          (editingName.value = (
-                            e.target as HTMLInputElement
-                          ).value)
+                        (editingName.value = (
+                          e.target as HTMLInputElement
+                        ).value)
                         }
                         class="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
                         placeholder="Enter passkey name"

@@ -3,8 +3,7 @@ import {
   requireJWTAuth,
   checkJWTRateLimit,
 } from "../../../../../lib/auth/jwt-validator";
-import { getDB, users } from "../../../../../lib/db";
-import { eq } from "drizzle-orm";
+// Note: This endpoint should be refactored to use hamrah-api instead of direct DB access
 
 /**
  * Protected API endpoint - Get user profile
@@ -132,32 +131,11 @@ export const onPatch: RequestHandler = async (event) => {
       return;
     }
 
-    // Update user in database
-    const db = getDB(event);
-    const updateData: { name: string; picture?: string; updatedAt: Date } = {
-      name: name.trim(),
-      updatedAt: new Date(),
-    };
-
-    if (picture) {
-      updateData.picture = picture.trim();
-    }
-
-    const [updatedUser] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, authResult.user.id))
-      .returning();
-
-    event.json(200, {
-      message: "Profile updated successfully",
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        name: updatedUser.name,
-        picture: updatedUser.picture,
-        updatedAt: updatedUser.updatedAt,
-      },
+    // TODO: Update user via hamrah-api instead of direct database access
+    // For now, return error indicating this functionality needs migration
+    event.json(501, {
+      error: "not_implemented",
+      error_description: "Profile update functionality is being migrated to hamrah-api",
     });
   } catch (error) {
     console.error("Profile update error:", error);

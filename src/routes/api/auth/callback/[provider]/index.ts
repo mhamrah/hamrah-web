@@ -101,13 +101,13 @@ export const onGet: RequestHandler = async (event) => {
       platform: "web",
     });
 
-    if (!sessionResult.success || !sessionResult.access_token) {
+    if (!sessionResult.success || !sessionResult.session) {
       throw new Error("Failed to create session");
     }
 
     // Set session cookie
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-    setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
+    setSessionTokenCookie(event, sessionResult.session, expiresAt);
 
     // Clear OAuth cookies
     event.cookie.delete(`${provider}_oauth_state`);
@@ -165,8 +165,8 @@ export const onPost: RequestHandler = async (event) => {
     // Create user and tokens via API
     const apiClient = createApiClient(event);
 
-    // Create tokens for mobile/API access
-    const tokenResult = await apiClient.createTokens({
+    // First create user via API
+    const userResult = await apiClient.createUser({
       email: userProfile.email,
       name: userProfile.name,
       picture: userProfile.picture,
@@ -177,12 +177,21 @@ export const onPost: RequestHandler = async (event) => {
       user_agent: event.request.headers.get("User-Agent") || undefined,
     });
 
+    if (!userResult.success || !userResult.user) {
+      throw new Error("Failed to create/update user");
+    }
+
+    // Then create tokens for mobile/API access
+    const tokenResult = await apiClient.createTokens({
+      user_id: userResult.user.id,
+      platform: platform as "web" | "ios",
+    });
+
     if (
       !tokenResult.success ||
-      !tokenResult.user ||
       !tokenResult.access_token
     ) {
-      throw new Error("Failed to create user and tokens");
+      throw new Error("Failed to create tokens");
     }
 
     const response: TokenResponse = {
@@ -191,10 +200,10 @@ export const onPost: RequestHandler = async (event) => {
       token_type: "Bearer",
       expires_in: tokenResult.expires_in || 3600,
       user: {
-        id: tokenResult.user.id,
-        email: tokenResult.user.email,
-        name: tokenResult.user.name || "User",
-        picture: tokenResult.user.picture,
+        id: userResult.user.id,
+        email: userResult.user.email,
+        name: userResult.user.name || "User",
+        picture: userResult.user.picture,
       },
     };
 
