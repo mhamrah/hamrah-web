@@ -7,9 +7,7 @@
   "name": "hamrah-app",
   "main": "./dist/_worker.js",
   "compatibility_date": "2025-08-02",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "binding": "ASSET",
     "directory": "./dist",
@@ -43,7 +41,7 @@
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
    */
   "placement": {
-    "mode": "smart"
+    "mode": "smart",
   },
   /**
    * Bindings

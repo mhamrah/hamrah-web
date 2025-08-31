@@ -53,3 +53,4 @@ functions/**/*.js
 .nx/workspace-data
 
 /playwright-report
+/coverage

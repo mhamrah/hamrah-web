@@ -54,12 +54,11 @@ const passkeyAuthServer = server$(async function (this: any, email?: string) {
         };
       } else {
         // New user, create registration options
-        const regOptions =
-          await generateWebAuthnRegistrationOptionsForNewUser(
-            this as any,
-            email,
-            "New User", // Will be updated after registration
-          );
+        const regOptions = await generateWebAuthnRegistrationOptionsForNewUser(
+          this as any,
+          email,
+          "New User", // Will be updated after registration
+        );
         return {
           success: true,
           type: "registration",
@@ -141,7 +140,11 @@ const completePasskeyAuth = server$(async function (
 
           if (sessionResult.success && sessionResult.access_token) {
             const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-            setSessionTokenCookie(this as any, sessionResult.access_token, expiresAt);
+            setSessionTokenCookie(
+              this as any,
+              sessionResult.access_token,
+              expiresAt,
+            );
 
             return {
               success: true,
@@ -156,7 +159,11 @@ const completePasskeyAuth = server$(async function (
       return {
         success: true,
         user: result.user,
-        needsProfile: !email || email.includes("@example.com") || !name || name === "New User",
+        needsProfile:
+          !email ||
+          email.includes("@example.com") ||
+          !name ||
+          name === "New User",
       };
     }
   } catch (error: any) {

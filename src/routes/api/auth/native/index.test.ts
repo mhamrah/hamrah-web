@@ -34,25 +34,30 @@ describe("/api/auth/native", () => {
     });
     mockEvent.parseBody = vi.fn();
     mockEvent.json = vi.fn();
-    
+
     // Mock AUTH_API service to return proper API responses (no authentication needed - handled by service binding)
     mockEvent.platform.env.AUTH_API = {
-      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({
-        success: true,
-        user: {
-          id: "user-123",
-          email: "test@gmail.com",
-          name: "Test User",
-          picture: "https://example.com/avatar.jpg",
-          auth_method: "google",
-          created_at: "2023-01-01T00:00:00Z"
-        },
-        access_token: "access-token-123",
-        refresh_token: "refresh-token-123",
-        expires_in: 3600
-      }), { status: 200 })),
+      fetch: vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-123",
+              email: "test@gmail.com",
+              name: "Test User",
+              picture: "https://example.com/avatar.jpg",
+              auth_method: "google",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-123",
+            refresh_token: "refresh-token-123",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      ),
     };
-    
+
     vi.clearAllMocks();
   });
 
@@ -112,20 +117,25 @@ describe("/api/auth/native", () => {
       });
 
       // Mock AUTH_API response for existing user update
-      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-        success: true,
-        user: {
-          id: "user-456",
-          email: "existing@gmail.com",
-          name: "Updated Name",
-          picture: "https://example.com/new-avatar.jpg",
-          auth_method: "google",
-          created_at: "2023-01-01T00:00:00Z"
-        },
-        access_token: "access-token-456",
-        refresh_token: "refresh-token-456",
-        expires_in: 3600
-      }), { status: 200 }));
+      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-456",
+              email: "existing@gmail.com",
+              name: "Updated Name",
+              picture: "https://example.com/new-avatar.jpg",
+              auth_method: "google",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-456",
+            refresh_token: "refresh-token-456",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      );
 
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
@@ -164,20 +174,25 @@ describe("/api/auth/native", () => {
       });
 
       // Mock AUTH_API response for Apple user creation
-      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-        success: true,
-        user: {
-          id: "user-789",
-          email: "user@example.com",
-          name: "User Name",
-          picture: null,
-          auth_method: "apple",
-          created_at: "2023-01-01T00:00:00Z"
-        },
-        access_token: "access-token-789",
-        refresh_token: "refresh-token-789",
-        expires_in: 3600
-      }), { status: 200 }));
+      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-789",
+              email: "user@example.com",
+              name: "User Name",
+              picture: null,
+              auth_method: "apple",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-789",
+            refresh_token: "refresh-token-789",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      );
 
       const { verifyAppleToken } = await import(
         "../../../../lib/auth/providers"
@@ -234,6 +249,9 @@ describe("/api/auth/native", () => {
     });
 
     it("should handle invalid token verification", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       mockEvent.parseBody.mockResolvedValue({
         provider: "google",
         credential: "invalid-token",
@@ -242,9 +260,8 @@ describe("/api/auth/native", () => {
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      vi.mocked(verifyGoogleToken).mockRejectedValue(
-        new Error("Invalid token"),
-      );
+      const tokenError = new Error("Invalid token");
+      vi.mocked(verifyGoogleToken).mockRejectedValue(tokenError);
 
       await onPost(mockEvent);
 
@@ -252,9 +269,17 @@ describe("/api/auth/native", () => {
         success: false,
         error: "Invalid authentication credential",
       });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Native authentication error:",
+        tokenError,
+      );
+      consoleErrorSpy.mockRestore();
     });
 
     it("should handle database errors gracefully", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       const mockGoogleData = {
         email: "test@gmail.com",
         name: "Test User",
@@ -267,10 +292,12 @@ describe("/api/auth/native", () => {
       });
 
       // Mock AUTH_API error response
-      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-        success: false,
-        error: "Database connection failed"
-      }), { status: 500 }));
+      const dbError = new Error(
+        'API call failed: 500 - {"success":false,"error":"Database connection failed"}',
+      );
+      mockEvent.platform.env.AUTH_API.fetch = vi
+        .fn()
+        .mockRejectedValue(dbError);
 
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
@@ -282,8 +309,14 @@ describe("/api/auth/native", () => {
 
       expect(mockEvent.json).toHaveBeenCalledWith(400, {
         success: false,
-        error: "API call failed: 500 - {\"success\":false,\"error\":\"Database connection failed\"}",
+        error:
+          'API call failed: 500 - {"success":false,"error":"Database connection failed"}',
       });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Native authentication error:",
+        dbError,
+      );
+      consoleErrorSpy.mockRestore();
     });
   });
 

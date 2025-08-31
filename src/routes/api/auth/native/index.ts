@@ -125,22 +125,25 @@ export const onPost: RequestHandler = async (event) => {
     };
 
     // Call the internal API via service binding (authentication handled by Cloudflare)
-    const apiResponse = await authApiService.fetch('https://api/internal/tokens', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Service-Name': 'hamrah-app', // For logging and identification
-        'X-Request-ID': crypto.randomUUID(), // For request tracing
+    const apiResponse = await authApiService.fetch(
+      "https://api/internal/tokens",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Service-Name": "hamrah-app", // For logging and identification
+          "X-Request-ID": crypto.randomUUID(), // For request tracing
+        },
+        body: JSON.stringify(apiRequest),
       },
-      body: JSON.stringify(apiRequest),
-    });
+    );
 
     if (!apiResponse.ok) {
       const errorData = await apiResponse.text();
       throw new Error(`API call failed: ${apiResponse.status} - ${errorData}`);
     }
 
-    const apiResult = await apiResponse.json() as {
+    const apiResult = (await apiResponse.json()) as {
       success: boolean;
       user?: {
         id: string;
@@ -161,13 +164,13 @@ export const onPost: RequestHandler = async (event) => {
       success: true,
       user: apiResult.user
         ? {
-          id: apiResult.user.id,
-          email: apiResult.user.email,
-          name: apiResult.user.name || "User",
-          picture: apiResult.user.picture || null,
-          authMethod: apiResult.user.auth_method || "oauth",
-          createdAt: apiResult.user.created_at,
-        }
+            id: apiResult.user.id,
+            email: apiResult.user.email,
+            name: apiResult.user.name || "User",
+            picture: apiResult.user.picture || null,
+            authMethod: apiResult.user.auth_method || "oauth",
+            createdAt: apiResult.user.created_at,
+          }
         : undefined,
       accessToken: apiResult.access_token,
       refreshToken: apiResult.refresh_token,

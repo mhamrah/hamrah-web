@@ -78,7 +78,7 @@ export const onGet: RequestHandler = async (event) => {
 
     // Create user and session via API
     const apiClient = createApiClient(event);
-    
+
     // Create user via API
     const userResult = await apiClient.createUser({
       email: userProfile.email,
@@ -164,7 +164,7 @@ export const onPost: RequestHandler = async (event) => {
 
     // Create user and tokens via API
     const apiClient = createApiClient(event);
-    
+
     // Create tokens for mobile/API access
     const tokenResult = await apiClient.createTokens({
       email: userProfile.email,
@@ -177,7 +177,11 @@ export const onPost: RequestHandler = async (event) => {
       user_agent: event.request.headers.get("User-Agent") || undefined,
     });
 
-    if (!tokenResult.success || !tokenResult.user || !tokenResult.access_token) {
+    if (
+      !tokenResult.success ||
+      !tokenResult.user ||
+      !tokenResult.access_token
+    ) {
       throw new Error("Failed to create user and tokens");
     }
 

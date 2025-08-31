@@ -142,12 +142,14 @@ tsconfig.json
 ## Architecture Overview
 
 ### Authentication Flow
+
 1. **OAuth Integration**: Handles Apple/Google OAuth flows in the web layer
 2. **API Communication**: All user creation, session management via hamrah-api
 3. **Session Storage**: Session tokens stored in HTTP-only cookies
 4. **WebAuthn Support**: Passkey authentication flows call hamrah-api WebAuthn endpoints
 
 ### API Integration
+
 - **Internal Endpoints**: Use service bindings with `X-Internal-Service` and `X-Internal-Key` headers
 - **Public Endpoints**: Standard REST API calls to hamrah-api for client-side operations
 - **Error Handling**: Centralized error handling in API client with proper error propagation
