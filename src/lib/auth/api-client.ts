@@ -1,6 +1,8 @@
-import type { RequestEventCommon } from "@builder.io/qwik-city";
+/**
+ * Centralized API client for hamrah-api communication.
+ */
+import type { RequestEventCommon } from '@builder.io/qwik-city';
 
-// Types for API responses
 export interface ApiUser {
   id: string;
   email: string;
@@ -8,14 +10,19 @@ export interface ApiUser {
   picture?: string;
   auth_method?: string;
   created_at: string;
-  // Additional properties to match database User type
   provider?: string | null;
   providerId?: string | null;
   emailVerified?: Date | null;
-  authMethod?: string | null;
   lastLoginPlatform?: string | null;
   lastLoginAt?: Date | null;
   updatedAt?: Date;
+}
+
+export interface WebAuthnCredential {
+  id: string;
+  name?: string | null;
+  created_at: string;
+  last_used?: string | null;
 }
 
 export interface ApiAuthResponse {
@@ -51,83 +58,191 @@ export interface SessionValidationRequest {
 }
 
 /**
- * API client for hamrah-api service calls
- * Replaces all direct database access in the web layer
+ * API client for hamrah-api service calls via HTTP(S).
  */
 export class HamrahApiClient {
+  private baseUrl: string;
   private event: RequestEventCommon;
-  private authApiService: Fetcher;
-  private internalApiKey: string;
 
-  constructor(event: RequestEventCommon) {
+  constructor(event: RequestEventCommon, baseUrl = 'https://api.hamrah.app') {
+    this.baseUrl = baseUrl;
     this.event = event;
-    this.authApiService = event.platform.env.AUTH_API as Fetcher;
-    this.internalApiKey = event.platform.env.INTERNAL_API_KEY;
-
-    if (!this.authApiService) {
-      throw new Error("AUTH_API service binding not configured");
-    }
-    if (!this.internalApiKey) {
-      throw new Error("INTERNAL_API_KEY not configured");
-    }
   }
 
-  private async makeInternalApiCall(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
+  private async fetchApi<T>(
+    path: string,
+    options: RequestInit = {},
+    withCredentials = true
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
-      'X-Internal-Service': 'hamrah-app',
-      'X-Internal-Key': this.internalApiKey,
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> | undefined),
     };
 
-    if (body) {
-      headers['Content-Type'] = 'application/json';
+    // Forward cookies for SSR (if present)
+    if (withCredentials && this.event.request.headers.has('cookie')) {
+      headers['cookie'] = this.event.request.headers.get('cookie')!;
     }
 
-    const response = await this.authApiService.fetch(`https://api/api/internal${endpoint}`, {
-      method,
+    const resp = await fetch(url, {
+      ...options,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      credentials: withCredentials ? 'include' : 'same-origin',
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API call failed: ${response.status} - ${errorText}`);
+    if (!resp.ok) {
+      const error = await resp.json().catch(() => ({}));
+      throw new Error((error as any)?.error || (error as any)?.message || `API error: ${resp.status}`);
     }
-
-    return await response.json();
+    return resp.json();
   }
 
-  /**
-   * Create or update user and return tokens for native apps
-   */
-  async createTokens(request: CreateUserRequest): Promise<ApiAuthResponse> {
-    return await this.makeInternalApiCall('/tokens', 'POST', request);
+  // WebAuthn: List credentials for current user
+  async listWebAuthnCredentials(): Promise<WebAuthnCredential[]> {
+    const data = await this.fetchApi<{ credentials: WebAuthnCredential[] }>(
+      '/api/webauthn/credentials',
+      { method: 'GET' }
+    );
+    return data.credentials;
   }
 
-  /**
-   * Create user (for web flows)
-   */
-  async createUser(request: CreateUserRequest): Promise<ApiAuthResponse> {
-    return await this.makeInternalApiCall('/users', 'POST', request);
+  // User: Create a new user
+  async createUser(params: {
+    email: string;
+    name?: string;
+    picture?: string;
+    auth_method: string;
+    provider: string;
+    provider_id: string;
+    platform: "web" | "ios";
+    user_agent?: string;
+    client_attestation?: string;
+  }): Promise<{ success: boolean; user?: ApiUser }> {
+    const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
+      '/api/internal/users',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+    return data;
   }
 
-  /**
-   * Create web session
-   */
-  async createSession(request: SessionRequest): Promise<ApiAuthResponse> {
-    return await this.makeInternalApiCall('/sessions', 'POST', request);
+  // Session: Create a new session
+  async createSession(params: { user_id: string; platform: "web" | "ios" }): Promise<{ success: boolean; session: any }> {
+    const data = await this.fetchApi<{ success: boolean; session: any }>(
+      '/api/internal/sessions',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+    return data;
   }
 
-  /**
-   * Validate session token
-   */
-  async validateSession(request: SessionValidationRequest): Promise<ApiAuthResponse> {
-    return await this.makeInternalApiCall('/sessions/validate', 'POST', request);
+  // Session: Validate a session token
+  async validateSession(params: { session_token: string }): Promise<{ success: boolean; valid: boolean; user?: ApiUser; session?: any }> {
+    const data = await this.fetchApi<{ success: boolean; valid: boolean; user?: ApiUser; session?: any }>(
+      '/api/internal/sessions/validate',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+    return data;
+  }
+
+  // Token: Create API tokens for mobile
+  async createTokens(params: { user_id: string; platform: "web" | "ios" }): Promise<{ success: boolean; access_token: string; refresh_token: string; expires_in: number }> {
+    const data = await this.fetchApi<{ success: boolean; access_token: string; refresh_token: string; expires_in: number }>(
+      '/api/internal/tokens',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+    return data;
+  }
+
+  // User: Get user by ID
+  async getUserById(params: { userId: string }): Promise<{ success: boolean; user?: ApiUser }> {
+    const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
+      `/api/users/${params.userId}`,
+      {
+        method: 'GET',
+      }
+    );
+    return data;
+  }
+
+  // WebAuthn: Delete a credential
+  async deleteWebAuthnCredential(credentialId: string): Promise<boolean> {
+    await this.fetchApi(`/api/webauthn/credentials/${credentialId}`, {
+      method: 'DELETE',
+    });
+    return true;
+  }
+
+  // WebAuthn: Update credential name
+  async updateWebAuthnCredentialName(credentialId: string, name: string): Promise<boolean> {
+    await this.fetchApi(`/api/webauthn/credentials/${credentialId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    return true;
+  }
+
+  // WebAuthn: Registration options for new user
+  async getWebAuthnRegistrationOptionsForNewUser(params: { email: string; name: string }): Promise<any> {
+    return await this.fetchApi('/api/webauthn/register/begin', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // WebAuthn: Registration options for existing user
+  async getWebAuthnRegistrationOptionsForExistingUser(params: { userId: string; email: string; name?: string }): Promise<any> {
+    return await this.fetchApi('/api/webauthn/register/begin', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // WebAuthn: Verify registration response
+  async verifyWebAuthnRegistration(params: { response: any; challengeId: string; userId?: string; email?: string; name?: string }): Promise<any> {
+    // The API expects challenge_id, response, email, name
+    return await this.fetchApi('/api/webauthn/register/complete', {
+      method: 'POST',
+      body: JSON.stringify({
+        challenge_id: params.challengeId,
+        response: params.response,
+        email: params.email,
+        name: params.name,
+      }),
+    });
+  }
+
+  // WebAuthn: Authentication options
+  async getWebAuthnAuthenticationOptions(params: { email?: string }): Promise<any> {
+    return await this.fetchApi('/api/webauthn/authenticate/begin', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // WebAuthn: Verify authentication response
+  async verifyWebAuthnAuthentication(params: { response: any; challengeId: string }): Promise<any> {
+    return await this.fetchApi('/api/webauthn/authenticate/complete', {
+      method: 'POST',
+      body: JSON.stringify({
+        challenge_id: params.challengeId,
+        response: params.response,
+      }),
+    });
   }
 }
 
-/**
- * Factory function to create API client instance
- */
 export function createApiClient(event: RequestEventCommon): HamrahApiClient {
   return new HamrahApiClient(event);
 }

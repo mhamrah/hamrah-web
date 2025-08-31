@@ -48,7 +48,11 @@ describe("/api/webauthn/register/begin", () => {
     );
 
     // Mock getCurrentUser to return no authenticated user (new user registration)
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
 
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
       mockOptions,
@@ -71,7 +75,11 @@ describe("/api/webauthn/register/begin", () => {
     mockEvent.parseBody.mockResolvedValue({});
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
 
     await onPost(mockEvent);
 
@@ -85,7 +93,11 @@ describe("/api/webauthn/register/begin", () => {
     mockEvent.parseBody.mockResolvedValue({ email: "invalid-email" });
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
 
     await onPost(mockEvent);
 
@@ -96,6 +108,9 @@ describe("/api/webauthn/register/begin", () => {
   });
 
   it("should handle webauthn generation errors", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     mockEvent.parseBody.mockResolvedValue({
       email: "test@example.com",
       name: "Test User",
@@ -106,9 +121,14 @@ describe("/api/webauthn/register/begin", () => {
       "../../../../../lib/auth/webauthn"
     );
 
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
+    const webauthnError = new Error("WebAuthn not supported");
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockRejectedValue(
-      new Error("WebAuthn not supported"),
+      webauthnError,
     );
 
     await onPost(mockEvent);
@@ -117,6 +137,11 @@ describe("/api/webauthn/register/begin", () => {
       success: false,
       error: "Failed to begin registration",
     });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "Begin registration error:",
+      webauthnError,
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it("should handle rate limiting", async () => {
@@ -130,7 +155,11 @@ describe("/api/webauthn/register/begin", () => {
       "../../../../../lib/auth/webauthn"
     );
 
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue({
       challenge: "test",
       rp: { id: "localhost", name: "Hamrah App" },
@@ -163,7 +192,11 @@ describe("/api/webauthn/register/begin", () => {
     mockEvent.parseBody.mockResolvedValue({ email: "test@example.com" });
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
 
     await onPost(mockEvent);
     expect(mockEvent.json).toHaveBeenCalledWith(400, {
@@ -191,7 +224,11 @@ describe("/api/webauthn/register/begin", () => {
       "../../../../../lib/auth/webauthn"
     );
 
-    vi.mocked(getCurrentUser).mockResolvedValue({ session: null, user: null, isValid: false });
+    vi.mocked(getCurrentUser).mockResolvedValue({
+      session: null,
+      user: null,
+      isValid: false,
+    });
     vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
       mockOptions,
     );

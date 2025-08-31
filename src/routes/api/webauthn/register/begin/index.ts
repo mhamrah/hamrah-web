@@ -33,11 +33,8 @@ export const onPost: RequestHandler = async (event) => {
       });
     } else if (email && name) {
       // New user registration with passkey
-      const registrationData = await generateWebAuthnRegistrationOptionsForNewUser(
-        event,
-        email,
-        name,
-      );
+      const registrationData =
+        await generateWebAuthnRegistrationOptionsForNewUser(event, email, name);
 
       event.json(200, {
         success: true,

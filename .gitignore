@@ -52,4 +52,5 @@ functions/**/*.js
 .nx/cache
 .nx/workspace-data
 
-playwrite-report
+/playwright-report
+/coverage

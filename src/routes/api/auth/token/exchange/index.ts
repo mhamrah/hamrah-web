@@ -1,8 +1,8 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { createTokenPair, type Platform } from "~/lib/auth/tokens";
 import { validateSessionToken } from "~/lib/auth/session";
-import { getDB, users } from "~/lib/db";
-import { eq } from "drizzle-orm";
+
+// import { eq } from "drizzle-orm"; // TODO: Remove when migrating to API-only architecture
 
 /**
  * Token Exchange Endpoint
@@ -69,14 +69,7 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     // Update user login tracking
-    const db = getDB(event);
-    await db
-      .update(users)
-      .set({
-        lastLoginPlatform: platform,
-        lastLoginAt: new Date(),
-      })
-      .where(eq(users.id, sessionResult.user.id));
+    // TODO: Use API client to update user login tracking if needed
 
     // Create new token pair for the requested platform
     const userAgent = event.request.headers.get("User-Agent") || undefined;

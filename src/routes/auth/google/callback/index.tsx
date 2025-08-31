@@ -100,13 +100,13 @@ export const onGet: RequestHandler = async (event) => {
       platform: "web",
     });
 
-    if (sessionResult.success && sessionResult.access_token) {
+    if (sessionResult.success && sessionResult.session) {
       // Note: Fresh profile data (picture, locale, etc.) is not stored in DB
       // to avoid staleness. For apps requiring up-to-date profile data,
       // consider storing ID token securely or re-fetching from provider.
 
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
+      setSessionTokenCookie(event, sessionResult.session, expiresAt);
     }
   } catch (error) {
     console.log("could not write to db", error);

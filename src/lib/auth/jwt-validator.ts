@@ -1,10 +1,11 @@
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 import { validateAccessToken } from './tokens';
-import type { User } from '../db';
+// import type { User } from '../db';
+// TODO: Use API user type from hamrah-api client if available
 
 export interface JWTAuthResult {
   isValid: boolean;
-  user?: User;
+  user?: any; // Use API user type if available
   payload?: any;
   scopes?: string[];
   error?: string;
@@ -30,21 +31,21 @@ export async function requireJWTAuth(
 ): Promise<JWTAuthResult> {
   try {
     const token = extractTokenFromHeader(event);
-    
+
     if (!token) {
-      return { 
-        isValid: false, 
-        error: 'Missing or invalid Authorization header' 
+      return {
+        isValid: false,
+        error: 'Missing or invalid Authorization header'
       };
     }
 
     // Validate the access token
     const result = await validateAccessToken(event, token);
-    
+
     if (!result.isValid || !result.user) {
-      return { 
-        isValid: false, 
-        error: 'Invalid or expired token' 
+      return {
+        isValid: false,
+        error: 'Invalid or expired token'
       };
     }
 
@@ -55,7 +56,7 @@ export async function requireJWTAuth(
     return {
       isValid: true,
       user: result.user,
-      payload: { 
+      payload: {
         sub: result.user.id,
         client_id: 'default',
         iat: Math.floor(Date.now() / 1000),
@@ -64,9 +65,9 @@ export async function requireJWTAuth(
       scopes
     };
   } catch (error) {
-    return { 
-      isValid: false, 
-      error: 'Token validation failed' 
+    return {
+      isValid: false,
+      error: 'Token validation failed'
     };
   }
 }
@@ -85,9 +86,9 @@ export async function checkJWTRateLimit(
 ): Promise<boolean> {
   const now = Date.now();
   const key = `jwt:${clientId}`;
-  
+
   const current = rateLimitMap.get(key);
-  
+
   if (!current || now > current.resetTime) {
     // Reset or initialize
     rateLimitMap.set(key, {
@@ -96,11 +97,11 @@ export async function checkJWTRateLimit(
     });
     return true;
   }
-  
+
   if (current.count >= maxRequests) {
     return false;
   }
-  
+
   current.count++;
   return true;
 }

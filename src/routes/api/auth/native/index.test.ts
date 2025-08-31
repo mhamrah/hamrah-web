@@ -34,6 +34,30 @@ describe("/api/auth/native", () => {
     });
     mockEvent.parseBody = vi.fn();
     mockEvent.json = vi.fn();
+
+    // Mock AUTH_API service to return proper API responses (no authentication needed - handled by service binding)
+    mockEvent.platform.env.AUTH_API = {
+      fetch: vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-123",
+              email: "test@gmail.com",
+              name: "Test User",
+              picture: "https://example.com/avatar.jpg",
+              auth_method: "google",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-123",
+            refresh_token: "refresh-token-123",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      ),
+    };
+
     vi.clearAllMocks();
   });
 
@@ -54,63 +78,8 @@ describe("/api/auth/native", () => {
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { createTokenPair } = await import("../../../../lib/auth/tokens");
-      const { getDB } = await import("../../../../lib/db");
 
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
-      vi.mocked(createTokenPair).mockResolvedValue({
-        accessToken: "access-token-123",
-        refreshToken: "refresh-token-123",
-        accessExpiresAt: new Date(Date.now() + 3600000),
-        refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-123",
-      });
-
-      // Mock user retrieval after creation
-      const mockCreatedUser = {
-        id: "user-123",
-        email: "test@gmail.com",
-        name: "Test User",
-        picture: "https://example.com/avatar.jpg",
-        authMethod: "google",
-        emailVerified: null,
-        provider: "google",
-        providerId: "google-123",
-        lastLoginPlatform: "api",
-        lastLoginAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Mock the database operations
-      let callCount = 0;
-      const mockDB = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation(() => {
-              callCount++;
-              // First call: check for existing user by email (should return empty for new user)
-              // Second call: get newly created user by ID (should return the created user)
-              const result = callCount === 1 ? [] : [mockCreatedUser];
-              return {
-                then: vi.fn().mockImplementation((callback) => {
-                  return Promise.resolve(callback(result));
-                }),
-              };
-            }),
-          }),
-        }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockResolvedValue([mockCreatedUser]),
-        }),
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([mockCreatedUser]),
-          }),
-        }),
-      };
-
-      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
       await onPost(mockEvent);
 
@@ -126,11 +95,11 @@ describe("/api/auth/native", () => {
           name: "Test User",
           picture: "https://example.com/avatar.jpg",
           authMethod: "google",
-          createdAt: expect.any(String),
+          createdAt: "2023-01-01T00:00:00Z",
         },
         accessToken: "access-token-123",
         refreshToken: "refresh-token-123",
-        expiresIn: expect.any(Number),
+        expiresIn: 3600,
       });
     });
 
@@ -142,80 +111,37 @@ describe("/api/auth/native", () => {
         providerId: "google-456",
       };
 
-      const mockExistingUser = {
-        id: "user-456",
-        email: "existing@gmail.com",
-        name: "Old Name",
-        picture: "https://example.com/old-avatar.jpg",
-        authMethod: "webauthn", // Different auth method
-        createdAt: new Date("2023-01-01"),
-        updatedAt: new Date("2023-01-01"),
-      };
-
       mockEvent.parseBody.mockResolvedValue({
         provider: "google",
         credential: "valid-google-token",
       });
 
+      // Mock AUTH_API response for existing user update
+      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-456",
+              email: "existing@gmail.com",
+              name: "Updated Name",
+              picture: "https://example.com/new-avatar.jpg",
+              auth_method: "google",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-456",
+            refresh_token: "refresh-token-456",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      );
+
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { createTokenPair } = await import("../../../../lib/auth/tokens");
-      const { getDB } = await import("../../../../lib/db");
 
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
-      vi.mocked(createTokenPair).mockResolvedValue({
-        accessToken: "access-token-456",
-        refreshToken: "refresh-token-456",
-        accessExpiresAt: new Date(Date.now() + 3600000),
-        refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-456",
-      });
-
-      // Mock updated user retrieval
-      const mockUpdatedUser = {
-        ...mockExistingUser,
-        name: "Updated Name",
-        picture: "https://example.com/new-avatar.jpg",
-        authMethod: "google",
-        emailVerified: null,
-        provider: "google",
-        providerId: "google-456",
-        lastLoginPlatform: "api",
-        lastLoginAt: null,
-        updatedAt: new Date(),
-      };
-
-      // Mock the database operations for existing user
-      let updateCallCount = 0;
-      const mockDB = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation(() => {
-              updateCallCount++;
-              // First call: check for existing user by email (should return existing user)
-              // Second call: get updated user after update (should return updated user)
-              const result =
-                updateCallCount === 1 ? [mockExistingUser] : [mockUpdatedUser];
-              return {
-                then: vi.fn().mockImplementation((callback) => {
-                  return Promise.resolve(callback(result));
-                }),
-              };
-            }),
-          }),
-        }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockResolvedValue([mockUpdatedUser]),
-        }),
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([mockUpdatedUser]),
-          }),
-        }),
-      };
-
-      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
       await onPost(mockEvent);
 
@@ -247,65 +173,32 @@ describe("/api/auth/native", () => {
         name: "User Name", // User-provided name
       });
 
+      // Mock AUTH_API response for Apple user creation
+      mockEvent.platform.env.AUTH_API.fetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            success: true,
+            user: {
+              id: "user-789",
+              email: "user@example.com",
+              name: "User Name",
+              picture: null,
+              auth_method: "apple",
+              created_at: "2023-01-01T00:00:00Z",
+            },
+            access_token: "access-token-789",
+            refresh_token: "refresh-token-789",
+            expires_in: 3600,
+          }),
+          { status: 200 },
+        ),
+      );
+
       const { verifyAppleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { createTokenPair } = await import("../../../../lib/auth/tokens");
-      const { getDB } = await import("../../../../lib/db");
 
       vi.mocked(verifyAppleToken).mockResolvedValue(mockAppleData);
-      vi.mocked(createTokenPair).mockResolvedValue({
-        accessToken: "access-token-789",
-        refreshToken: "refresh-token-789",
-        accessExpiresAt: new Date(Date.now() + 3600000),
-        refreshExpiresAt: new Date(Date.now() + 86400000),
-        tokenId: "token-id-789",
-      });
-
-      const mockCreatedUser = {
-        id: "user-789",
-        email: "user@example.com", // Should use provided email
-        name: "User Name", // Should use provided name
-        authMethod: "apple",
-        picture: null,
-        emailVerified: null,
-        provider: "apple",
-        providerId: "apple-789",
-        lastLoginPlatform: "api",
-        lastLoginAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Mock the database operations for new Apple user
-      let appleCallCount = 0;
-      const mockDB = {
-        select: vi.fn().mockReturnValue({
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockImplementation(() => {
-              appleCallCount++;
-              // First call: check for existing user by email (should return empty for new user)
-              // Second call: get newly created user by ID (should return the created user)
-              const result = appleCallCount === 1 ? [] : [mockCreatedUser];
-              return {
-                then: vi.fn().mockImplementation((callback) => {
-                  return Promise.resolve(callback(result));
-                }),
-              };
-            }),
-          }),
-        }),
-        insert: vi.fn().mockReturnValue({
-          values: vi.fn().mockResolvedValue([mockCreatedUser]),
-        }),
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([mockCreatedUser]),
-          }),
-        }),
-      };
-
-      vi.mocked(getDB).mockReturnValue(mockDB as any);
 
       await onPost(mockEvent);
 
@@ -356,6 +249,9 @@ describe("/api/auth/native", () => {
     });
 
     it("should handle invalid token verification", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       mockEvent.parseBody.mockResolvedValue({
         provider: "google",
         credential: "invalid-token",
@@ -364,9 +260,8 @@ describe("/api/auth/native", () => {
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      vi.mocked(verifyGoogleToken).mockRejectedValue(
-        new Error("Invalid token"),
-      );
+      const tokenError = new Error("Invalid token");
+      vi.mocked(verifyGoogleToken).mockRejectedValue(tokenError);
 
       await onPost(mockEvent);
 
@@ -374,9 +269,17 @@ describe("/api/auth/native", () => {
         success: false,
         error: "Invalid authentication credential",
       });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Native authentication error:",
+        tokenError,
+      );
+      consoleErrorSpy.mockRestore();
     });
 
     it("should handle database errors gracefully", async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
       const mockGoogleData = {
         email: "test@gmail.com",
         name: "Test User",
@@ -388,24 +291,32 @@ describe("/api/auth/native", () => {
         credential: "valid-token",
       });
 
+      // Mock AUTH_API error response
+      const dbError = new Error(
+        'API call failed: 500 - {"success":false,"error":"Database connection failed"}',
+      );
+      mockEvent.platform.env.AUTH_API.fetch = vi
+        .fn()
+        .mockRejectedValue(dbError);
+
       const { verifyGoogleToken } = await import(
         "../../../../lib/auth/providers"
       );
-      const { getDB } = await import("../../../../lib/db");
 
       vi.mocked(verifyGoogleToken).mockResolvedValue(mockGoogleData);
-
-      // Mock database error
-      vi.mocked(getDB).mockImplementation(() => {
-        throw new Error("Database connection failed");
-      });
 
       await onPost(mockEvent);
 
       expect(mockEvent.json).toHaveBeenCalledWith(400, {
         success: false,
-        error: "Database connection failed",
+        error:
+          'API call failed: 500 - {"success":false,"error":"Database connection failed"}',
       });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Native authentication error:",
+        dbError,
+      );
+      consoleErrorSpy.mockRestore();
     });
   });
 

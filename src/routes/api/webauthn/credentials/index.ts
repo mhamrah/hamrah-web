@@ -19,9 +19,8 @@ export const onGet: RequestHandler = async (event) => {
       return;
     }
 
-    const { user } = authResult;
-
-    const credentials = await getUserWebAuthnCredentials(event, user.id);
+    // No need for user.id, API client uses session/cookie for auth
+    const credentials = await getUserWebAuthnCredentials(event);
 
     // Return safe credential info (don't expose sensitive data)
     const safeCredentials = credentials.map((cred) => ({
@@ -59,7 +58,7 @@ export const onDelete: RequestHandler = async (event) => {
       return;
     }
 
-    const { user } = authResult;
+    // const { user } = authResult; // TODO: Use user context for authorization
 
     const body = await event.parseBody();
     const { credentialId } = body as { credentialId: string };
@@ -72,11 +71,7 @@ export const onDelete: RequestHandler = async (event) => {
       return;
     }
 
-    const deleted = await deleteWebAuthnCredential(
-      event,
-      credentialId,
-      user.id,
-    );
+    const deleted = await deleteWebAuthnCredential(event, credentialId);
 
     if (!deleted) {
       event.json(404, {
@@ -112,7 +107,7 @@ export const onPatch: RequestHandler = async (event) => {
       return;
     }
 
-    const { user } = authResult;
+    // const { user } = authResult; // TODO: Use user context for authorization
 
     const body = await event.parseBody();
     const { credentialId, name } = body as {
@@ -131,7 +126,6 @@ export const onPatch: RequestHandler = async (event) => {
     const updated = await updateWebAuthnCredentialName(
       event,
       credentialId,
-      user.id,
       name,
     );
 
