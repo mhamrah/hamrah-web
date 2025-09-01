@@ -1,5 +1,6 @@
 /**
- * Centralized API client for hamrah-api communication.
+ * Public API client for hamrah-api cookie-based authentication.
+ * Uses external endpoints that work with both client and server-side code.
  */
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 
@@ -25,39 +26,30 @@ export interface ApiAuthResponse {
   refresh_token?: string;
   expires_in?: number;
   error?: string;
-  session?: any; // For compatibility with existing code
-  expiresAt?: Date; // For compatibility with existing code
 }
 
-export interface CreateUserRequest {
-  email: string;
+export interface TokenRefreshRequest {
+  refresh_token: string;
+}
+
+export interface NativeAuthRequest {
+  provider: string;
+  credential: string;
+  email?: string;
   name?: string;
   picture?: string;
-  auth_method: string;
-  provider: string;
-  provider_id: string;
-  platform: "web" | "ios";
-  user_agent?: string;
-  client_attestation?: string;
-}
-
-export interface SessionRequest {
-  user_id: string;
-  platform: "web" | "ios";
-}
-
-export interface SessionValidationRequest {
-  session_token: string;
 }
 
 /**
- * API client for hamrah-api service calls via HTTP(S).
+ * Public API client for hamrah-api communication via external endpoints.
+ * Uses cookie-based authentication for session validation.
+ * Safe to use on both client and server side.
  */
 export class HamrahApiClient {
   private baseUrl: string;
-  private event: RequestEventCommon;
+  private event?: RequestEventCommon;
 
-  constructor(event: RequestEventCommon, baseUrl = 'https://api.hamrah.app') {
+  constructor(event?: RequestEventCommon, baseUrl = 'https://api.hamrah.app') {
     this.baseUrl = baseUrl;
     this.event = event;
   }
@@ -74,7 +66,7 @@ export class HamrahApiClient {
     };
 
     // Forward cookies for SSR (if present)
-    if (withCredentials && this.event.request.headers.has('cookie')) {
+    if (withCredentials && this.event?.request.headers.has('cookie')) {
       headers['cookie'] = this.event.request.headers.get('cookie')!;
     }
 
@@ -91,90 +83,64 @@ export class HamrahApiClient {
     return resp.json();
   }
 
-  // User: Create a new user
-  async createUser(params: {
-    email: string;
-    name?: string;
-    picture?: string;
-    auth_method: string;
-    provider: string;
-    provider_id: string;
-    platform: "web" | "ios";
-    user_agent?: string;
-    client_attestation?: string;
-  }): Promise<{ success: boolean; user?: ApiUser }> {
-    const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
-      '/api/internal/users',
+  // Public endpoint: Validate session via cookie
+  async validateSession(): Promise<ApiAuthResponse> {
+    return this.fetchApi<ApiAuthResponse>('/api/auth/sessions/validate', {
+      method: 'GET',
+    });
+  }
+
+  // Public endpoint: Logout session
+  async logout(): Promise<{ success: boolean; message: string }> {
+    return this.fetchApi<{ success: boolean; message: string }>(
+      '/api/auth/sessions/logout',
       {
         method: 'POST',
-        body: JSON.stringify(params),
       }
     );
-    return data;
   }
 
-  // Session: Create a new session
-  async createSession(params: { user_id: string; platform: "web" | "ios" }): Promise<{ success: boolean; session: any }> {
-    const data = await this.fetchApi<{ success: boolean; session: any }>(
-      '/api/internal/sessions',
+  // Public endpoint: Refresh access token
+  async refreshToken(params: TokenRefreshRequest): Promise<ApiAuthResponse> {
+    return this.fetchApi<ApiAuthResponse>('/api/auth/tokens/refresh', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Public endpoint: Revoke specific token
+  async revokeToken(tokenId: string): Promise<{ success: boolean; message: string }> {
+    return this.fetchApi<{ success: boolean; message: string }>(
+      `/api/auth/tokens/${tokenId}/revoke`,
       {
-        method: 'POST',
-        body: JSON.stringify(params),
+        method: 'DELETE',
       }
     );
-    return data;
   }
 
-  // Session: Validate a session token
-  async validateSession(params: { session_token: string }): Promise<{ success: boolean; valid: boolean; user?: ApiUser; session?: any }> {
-    const data = await this.fetchApi<{ success: boolean; valid: boolean; user?: ApiUser; session?: any }>(
-      '/api/internal/sessions/validate',
+  // Public endpoint: Revoke all user tokens
+  async revokeAllUserTokens(userId: string): Promise<{ success: boolean; message: string }> {
+    return this.fetchApi<{ success: boolean; message: string }>(
+      `/api/auth/users/${userId}/tokens/revoke`,
       {
-        method: 'POST',
-        body: JSON.stringify(params),
+        method: 'DELETE',
       }
     );
-    return data;
   }
 
-  // Token: Create API tokens for mobile
-  async createTokens(params: { user_id: string; platform: "web" | "ios" }): Promise<{ success: boolean; access_token: string; refresh_token: string; expires_in: number }> {
-    const data = await this.fetchApi<{ success: boolean; access_token: string; refresh_token: string; expires_in: number }>(
-      '/api/internal/tokens',
-      {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }
-    );
-    return data;
-  }
-
-  // User: Get user by ID
-  async getUserById(params: { userId: string }): Promise<{ success: boolean; user?: ApiUser }> {
-    const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
-      `/api/users/${params.userId}`,
-      {
-        method: 'GET',
-      }
-    );
-    return data;
-  }
-
-  // Get user by email
-  async getUserByEmail(params: { email: string }): Promise<ApiUser | null> {
-    try {
-      const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
-        `/api/users/by-email/${encodeURIComponent(params.email)}`,
-        { method: 'GET' }
-      );
-      return data.user || null;
-    } catch (error) {
-      // User not found is expected
-      return null;
-    }
+  // Public endpoint: Native app authentication
+  async nativeAuth(params: NativeAuthRequest): Promise<ApiAuthResponse> {
+    return this.fetchApi<ApiAuthResponse>('/api/auth/native', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   }
 }
 
-export function createApiClient(event: RequestEventCommon): HamrahApiClient {
+/**
+ * Create a public API client for cookie-based authentication.
+ * Safe to use on both client and server side.
+ */
+export function createApiClient(event?: RequestEventCommon): HamrahApiClient {
   return new HamrahApiClient(event);
 }

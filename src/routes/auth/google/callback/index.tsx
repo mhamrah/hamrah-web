@@ -1,7 +1,7 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getGoogleProvider } from "~/lib/auth/providers";
 import { setSessionTokenCookie } from "~/lib/auth/session";
-import { createApiClient } from "~/lib/auth/api-client";
+import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 
 export const onGet: RequestHandler = async (event) => {
   const url = new URL(event.request.url);
@@ -77,9 +77,9 @@ export const onGet: RequestHandler = async (event) => {
   // - at_hash: Access token hash
 
   try {
-    // Create user and session via API
-    const apiClient = createApiClient(event);
-    const userResult = await apiClient.createUser({
+    // Create user and session via internal API (service binding)
+    const internalApiClient = createInternalApiClient(event);
+    const userResult = await internalApiClient.createUser({
       email: googleUser.email,
       name: googleUser.name,
       picture: undefined, // Don't store - will be fetched fresh from session
@@ -94,19 +94,19 @@ export const onGet: RequestHandler = async (event) => {
       throw new Error("Failed to create/update user");
     }
 
-    // Create web session via API
-    const sessionResult = await apiClient.createSession({
+    // Create web session via internal API (service binding)
+    const sessionResult = await internalApiClient.createSession({
       user_id: userResult.user.id,
       platform: "web",
     });
 
-    if (sessionResult.success && sessionResult.session) {
+    if (sessionResult.success && sessionResult.access_token) {
       // Note: Fresh profile data (picture, locale, etc.) is not stored in DB
       // to avoid staleness. For apps requiring up-to-date profile data,
       // consider storing ID token securely or re-fetching from provider.
 
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(event, sessionResult.session, expiresAt);
+      setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
     }
   } catch (error) {
     console.log("could not write to db", error);

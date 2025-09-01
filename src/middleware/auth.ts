@@ -194,10 +194,10 @@ async function trySessionAuth(
     const result = await validateSessionToken(event, sessionToken);
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (result?.session && result?.user) {
+    if (result?.success && result?.user) {
       return {
-        ...result,
-        isValid: result.success || true,
+        success: true,
+        isValid: true,
         session: result.session,
         user: result.user,
       };
@@ -212,7 +212,7 @@ async function trySessionAuth(
     console.error("Session authentication error:", error);
   }
 
-  return { session: null, user: null, isValid: false };
+  return { success: false, session: null, user: null, isValid: false };
 }
 
 /**

@@ -2,6 +2,7 @@ import { sha256 } from "@oslojs/crypto/sha2";
 import { encodeBase32LowerCaseNoPadding, encodeHexLowerCase } from "@oslojs/encoding";
 import type { RequestEventCommon } from '@builder.io/qwik-city';
 import { createApiClient } from "./api-client";
+import { createInternalApiClient } from "./internal-api-client";
 
 export function generateSessionToken(): string {
   const bytes = new Uint8Array(20);
@@ -15,20 +16,26 @@ export function createSessionId(token: string): string {
 }
 
 export async function createSession(event: RequestEventCommon, token: string, userId: string) {
-  // Session creation is now handled via API
-  const apiClient = createApiClient(event);
-  return await apiClient.createSession({
+  // Session creation via internal service binding (only for server$ functions)
+  const internalApiClient = createInternalApiClient(event);
+  return await internalApiClient.createSession({
     user_id: userId,
     platform: "web",
   });
 }
 
-export async function validateSessionToken(event: RequestEventCommon, token: string) {
-  // Session validation is now handled via API
+export async function validateSessionToken(event: RequestEventCommon, token: string): Promise<SessionValidationResult> {
+  // Session validation via public cookie-based endpoint
   const apiClient = createApiClient(event);
-  return await apiClient.validateSession({
-    session_token: token,
-  });
+  const result = await apiClient.validateSession();
+  
+  // Convert ApiAuthResponse to SessionValidationResult
+  return {
+    success: result.success,
+    isValid: result.success,
+    user: result.user,
+    session: token ? { token, expiresAt: new Date() } : null,
+  };
 }
 
 export function setSessionTokenCookie(event: RequestEventCommon, token: string, expiresAt: Date): void {
@@ -50,7 +57,8 @@ export function invalidateSession(event: any, sessionId: string): any {
 }
 
 export interface SessionValidationResult {
-  session: any;
-  user: any;
+  success: boolean;
+  user?: any;
+  session?: { token: string; expiresAt: Date } | null;
   isValid: boolean;
 }

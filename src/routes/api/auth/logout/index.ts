@@ -2,7 +2,6 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { revokeToken, revokeAllUserTokens } from "~/lib/auth/tokens";
 import {
   validateSessionToken,
-  invalidateSession,
   deleteSessionTokenCookie,
 } from "~/lib/auth/session";
 
@@ -105,13 +104,15 @@ export const onPost: RequestHandler = async (event) => {
       );
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (sessionResult?.session && sessionResult?.user) {
+      if (sessionResult?.isValid && sessionResult?.user) {
         if (!userId) {
           userId = sessionResult.user.id;
         }
 
-        // Invalidate the session
-        await invalidateSession(event, sessionResult.session.id);
+        // Use public logout endpoint to invalidate session via cookie
+        const { createApiClient } = await import("~/lib/auth/api-client");
+        const apiClient = createApiClient(event);
+        await apiClient.logout();
 
         // Clear session cookie
         deleteSessionTokenCookie(event);
@@ -161,8 +162,11 @@ export const onGet: RequestHandler = async (event) => {
     try {
       const sessionResult = await validateSessionToken(event, sessionCookie);
 
-      if (sessionResult.session) {
-        await invalidateSession(event, sessionResult.session.id);
+      if (sessionResult.isValid) {
+        // Use public logout endpoint to invalidate session via cookie
+        const { createApiClient } = await import("~/lib/auth/api-client");
+        const apiClient = createApiClient(event);
+        await apiClient.logout();
       }
 
       deleteSessionTokenCookie(event);
