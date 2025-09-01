@@ -51,9 +51,8 @@ export default component$(() => {
                       Authentication Method:
                     </dt>
                     <dd class="text-sm text-gray-900">
-                      {user.value.provider
-                        ? `${user.value.provider.charAt(0).toUpperCase()}${user.value.provider.slice(1)}`
-                        : "Passkey"}
+                      {user.value.provider?.charAt(0).toUpperCase()}
+                      {user.value.provider?.slice(1)}
                     </dd>
                   </div>
                   <div>

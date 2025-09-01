@@ -8,13 +8,6 @@ This is a Qwik-based web application with Cloudflare Pages deployment support. T
 
 ## Core Technologies
 
-- [Qwik](https://qwik.dev/) - Core framework
-- [QwikCity](https://qwik.dev/qwikcity/overview/) - Full-stack framework built on Qwik
-- [Cloudflare Pages](https://pages.cloudflare.com/) - Deployment platform
-- [Cloudflare Service Bindings](https://developers.cloudflare.com/workers/runtime-apis/service-bindings/) - Internal API communication
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [TypeScript](https://www.typescriptlang.org/) - Programming language
-
 ## Commands
 
 ### Development
@@ -146,7 +139,6 @@ tsconfig.json
 1. **OAuth Integration**: Handles Apple/Google OAuth flows in the web layer
 2. **API Communication**: All user creation, session management via hamrah-api
 3. **Session Storage**: Session tokens stored in HTTP-only cookies
-4. **WebAuthn Support**: Passkey authentication flows call hamrah-api WebAuthn endpoints
 
 ### API Integration
 

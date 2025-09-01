@@ -43,11 +43,7 @@ export default component$(() => {
                   </span>
                 </button>
                 <div data-testid="auth-method" class="hidden">
-                  {user.value.provider
-                    ? user.value.provider === "google"
-                      ? "Google"
-                      : "Apple"
-                    : "Passkey"}
+                  {user.value.provider === "google" ? "Google" : "Apple"}
                 </div>
               </div>
               <a
@@ -89,9 +85,8 @@ export default component$(() => {
                   User ID: {user.value.id}
                 </p>
                 <p class="text-xs text-gray-500">
-                  {user.value.provider
-                    ? `Signed in with ${user.value.provider === "google" ? "Google" : "Apple"}`
-                    : "Signed in with Passkey"}
+                  Signed in with{" "}
+                  {user.value.provider === "google" ? "Google" : "Apple"}
                 </p>
                 {user.value.providerId && (
                   <p class="text-xs text-gray-500">
@@ -137,7 +132,7 @@ export default component$(() => {
               <div class="rounded-lg bg-gray-50 p-4">
                 <dt class="text-sm font-medium text-gray-500">Provider</dt>
                 <dd class="mt-1 text-sm text-gray-900 capitalize">
-                  {user.value.provider || "Passkey"}
+                  {user.value.provider}
                 </dd>
               </div>
               {user.value.providerId && (

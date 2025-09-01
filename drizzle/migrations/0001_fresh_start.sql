@@ -30,33 +30,7 @@ CREATE TABLE `sessions` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 
--- WebAuthn credentials table for passkey authentication
-CREATE TABLE `webauthn_credentials` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`public_key` text NOT NULL,
-	`counter` integer DEFAULT 0 NOT NULL,
-	`transports` text,
-	`aaguid` text,
-	`credential_type` text DEFAULT 'public-key' NOT NULL,
-	`user_verified` integer DEFAULT false NOT NULL,
-	`credential_device_type` text,
-	`credential_backed_up` integer DEFAULT false NOT NULL,
-	`name` text,
-	`last_used` integer,
-	`created_at` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
-);
 
--- WebAuthn challenges table for temporary challenge storage
-CREATE TABLE `webauthn_challenges` (
-	`id` text PRIMARY KEY NOT NULL,
-	`challenge` text NOT NULL,
-	`user_id` text,
-	`type` text NOT NULL,
-	`expires_at` integer NOT NULL,
-	`created_at` integer NOT NULL
-);
 
 -- Auth tokens table for mobile and API authentication
 CREATE TABLE `auth_tokens` (

@@ -1,7 +1,5 @@
 import { component$, useSignal, $ } from "@builder.io/qwik";
 import type { DocumentHead, RequestHandler } from "@builder.io/qwik-city";
-import { server$ } from "@builder.io/qwik-city";
-import { startRegistration } from "@simplewebauthn/browser";
 
 export const onGet: RequestHandler = async ({ cacheControl }) => {
   // Prevent caching of register page to ensure users see current auth state
@@ -11,96 +9,6 @@ export const onGet: RequestHandler = async ({ cacheControl }) => {
     maxAge: 0,
   });
 };
-
-// Server function for passkey registration
-const passkeyRegisterServer = server$(async function (
-  this: any,
-  email: string,
-  name: string,
-) {
-  const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
-    "~/lib/auth/webauthn"
-  );
-
-  try {
-    const regOptions = await generateWebAuthnRegistrationOptionsForNewUser(
-      this as any,
-      email,
-      name,
-    );
-    return {
-      success: true,
-      options: regOptions,
-      email,
-      name,
-    };
-  } catch (error: any) {
-    console.error("Passkey registration begin error:", error);
-    return { success: false, error: error.message };
-  }
-});
-
-const completePasskeyRegister = server$(async function (
-  this: any,
-  response: any,
-  challengeId: string,
-  email: string,
-  name: string,
-) {
-  const { verifyWebAuthnRegistration } = await import("~/lib/auth/webauthn");
-  const { setSessionTokenCookie } = await import("~/lib/auth/session");
-  const { createApiClient } = await import("~/lib/auth/api-client");
-
-  try {
-    // Create user via API
-    const apiClient = createApiClient(this as any);
-    const userResult = await apiClient.createUser({
-      email,
-      name,
-      picture: undefined,
-      auth_method: "webauthn",
-      provider: "webauthn",
-      provider_id: "", // Will be set after registration
-      platform: "web",
-      user_agent: this.request?.headers?.get("User-Agent") || undefined,
-    });
-
-    if (!userResult.success || !userResult.user) {
-      throw new Error("Failed to create user");
-    }
-
-    // Verify the registration
-    const result = await verifyWebAuthnRegistration(
-      this as any,
-      response,
-      challengeId,
-      undefined, // User is passed via context but WebAuthn lib will handle internally
-    );
-
-    if (!result.verified) {
-      throw new Error("Registration verification failed");
-    }
-
-    // Create session via API
-    const sessionResult = await apiClient.createSession({
-      user_id: userResult.user.id,
-      platform: "web",
-    });
-
-    if (sessionResult.success && sessionResult.session) {
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(this as any, sessionResult.session, expiresAt);
-    }
-
-    return {
-      success: true,
-      user: result.user || userResult.user,
-    };
-  } catch (error: any) {
-    console.error("Complete passkey registration error:", error);
-    return { success: false, error: error.message };
-  }
-});
 
 export default component$(() => {
   const isLoading = useSignal(false);
@@ -117,7 +25,7 @@ export default component$(() => {
     return "/";
   });
 
-  const handlePasskeyRegister = $(async () => {
+  const handleRegister = $(async () => {
     if (!email.value || !name.value) {
       error.value = "Please fill in all fields";
       return;
@@ -127,48 +35,17 @@ export default component$(() => {
     error.value = "";
 
     try {
-      // Begin passkey registration
-      const beginResult = (await (passkeyRegisterServer as any)(
-        email.value,
-        name.value,
-      )) as any;
-
-      if (!beginResult.success) {
-        throw new Error(
-          beginResult.error || "Failed to begin passkey registration",
-        );
-      }
-
-      const { challengeId, ...options } = beginResult.options as any;
-
-      // Start registration with WebAuthn
-      const response = await startRegistration({ optionsJSON: options });
-
-      // Complete the registration
-      const completeResult = (await completePasskeyRegister(
-        response,
-        challengeId,
-        email.value,
-        name.value,
-      )) as any;
-
-      if (!completeResult.success) {
-        throw new Error(
-          completeResult.error || "Failed to complete passkey registration",
-        );
-      }
+      // TODO: Implement actual registration logic here
+      // For now, simulate a successful registration
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Redirect to success page or dashboard
       const redirectUrl = await getRedirectUrl();
       window.location.href = redirectUrl;
     } catch (err: any) {
-      let errorMessage = "Failed to register with passkey";
+      let errorMessage = "Failed to register";
 
-      if (err.name === "NotAllowedError") {
-        errorMessage = "Passkey registration was cancelled or timed out";
-      } else if (err.name === "SecurityError") {
-        errorMessage = "Security error during registration";
-      } else if (err.message) {
+      if (err.message) {
         errorMessage = err.message;
       }
 
@@ -184,9 +61,7 @@ export default component$(() => {
         <div class="space-y-6">
           <div class="text-center">
             <h2 class="text-3xl font-bold text-gray-900">Create Account</h2>
-            <p class="mt-2 text-gray-600">
-              Register for a new account with a passkey
-            </p>
+            <p class="mt-2 text-gray-600">Register for a new account</p>
           </div>
 
           {error.value && (
@@ -240,8 +115,8 @@ export default component$(() => {
 
             <button
               type="button"
-              data-testid="register-passkey-button"
-              onClick$={handlePasskeyRegister}
+              data-testid="register-button"
+              onClick$={handleRegister}
               disabled={isLoading.value}
               class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -271,22 +146,7 @@ export default component$(() => {
                   Creating Account...
                 </>
               ) : (
-                <>
-                  <svg
-                    class="mr-3 h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z"
-                    />
-                  </svg>
-                  Register with Passkey
-                </>
+                "Register"
               )}
             </button>
           </div>

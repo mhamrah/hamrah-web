@@ -48,15 +48,6 @@ Object.defineProperty(global, "crypto", {
   configurable: true,
 });
 
-// Mock WebAuthn APIs
-global.navigator = {
-  ...global.navigator,
-  credentials: {
-    create: vi.fn(),
-    get: vi.fn(),
-  },
-} as any;
-
 // Helper function to create mock request event
 export function createMockRequestEvent(
   overrides: Partial<RequestEventCommon> = {},
