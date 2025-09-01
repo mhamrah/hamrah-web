@@ -2,6 +2,11 @@
  * Centralized API client for hamrah-api communication.
  */
 import type { RequestEventCommon } from '@builder.io/qwik-city';
+import type {
+  ApiWebAuthnCredential,
+  WebAuthnCredentialForStorage,
+  WebAuthnCredentialFromApi,
+} from '~/lib/webauthn/types';
 
 export interface ApiUser {
   id: string;
@@ -18,12 +23,8 @@ export interface ApiUser {
   updatedAt?: Date;
 }
 
-export interface WebAuthnCredential {
-  id: string;
-  name?: string | null;
-  created_at: string;
-  last_used?: string | null;
-}
+// Re-export WebAuthn types from consolidated types file
+export type { ApiWebAuthnCredential as WebAuthnCredential } from '~/lib/webauthn/types';
 
 export interface ApiAuthResponse {
   success: boolean;
@@ -99,8 +100,8 @@ export class HamrahApiClient {
   }
 
   // WebAuthn: List credentials for current user
-  async listWebAuthnCredentials(): Promise<WebAuthnCredential[]> {
-    const data = await this.fetchApi<{ credentials: WebAuthnCredential[] }>(
+  async listWebAuthnCredentials(): Promise<ApiWebAuthnCredential[]> {
+    const data = await this.fetchApi<{ credentials: ApiWebAuthnCredential[] }>(
       '/api/webauthn/credentials',
       { method: 'GET' }
     );
@@ -240,6 +241,150 @@ export class HamrahApiClient {
         response: params.response,
       }),
     });
+  }
+
+  // ===== NEW WEBAUTHN PERSISTENCE METHODS =====
+  // These methods call hamrah-api for data persistence only
+  
+  // Get user by email
+  async getUserByEmail(params: { email: string }): Promise<ApiUser | null> {
+    try {
+      const data = await this.fetchApi<{ success: boolean; user?: ApiUser }>(
+        `/api/users/by-email/${encodeURIComponent(params.email)}`,
+        { method: 'GET' }
+      );
+      return data.user || null;
+    } catch (error) {
+      // User not found is expected
+      return null;
+    }
+  }
+
+  // Get WebAuthn credentials for a specific user
+  async getWebAuthnCredentials(userId: string): Promise<{ credentials: ApiWebAuthnCredential[] }> {
+    const data = await this.fetchApi<{ success: boolean; credentials: ApiWebAuthnCredential[] }>(
+      `/api/webauthn/users/${userId}/credentials`,
+      { method: 'GET' }
+    );
+    return { credentials: data.credentials || [] };
+  }
+
+  // Store a new WebAuthn credential
+  async storeWebAuthnCredential(credential: WebAuthnCredentialForStorage): Promise<{ success: boolean }> {
+    // Convert Uint8Arrays to base64
+    const serializedCredential = {
+      ...credential,
+      public_key: Array.from(credential.public_key),
+      aaguid: credential.aaguid ? Array.from(credential.aaguid) : undefined,
+    };
+
+    return await this.fetchApi<{ success: boolean }>(
+      '/api/webauthn/credentials',
+      {
+        method: 'POST',
+        body: JSON.stringify(serializedCredential),
+      }
+    );
+  }
+
+  // Get a specific WebAuthn credential by ID
+  async getWebAuthnCredentialById(credentialId: string): Promise<WebAuthnCredentialFromApi | null> {
+    try {
+      const data = await this.fetchApi<{ 
+        success: boolean; 
+        credential?: {
+          id: string;
+          user_id: string;
+          public_key: number[];
+          counter: number;
+          transports?: string[];
+          aaguid?: number[];
+        }
+      }>(
+        `/api/webauthn/credentials/${credentialId}`,
+        { method: 'GET' }
+      );
+      
+      if (!data.credential) {
+        return null;
+      }
+
+      // Convert arrays back to Uint8Arrays
+      return {
+        ...data.credential,
+        public_key: new Uint8Array(data.credential.public_key),
+        aaguid: data.credential.aaguid ? new Uint8Array(data.credential.aaguid) : undefined,
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Update WebAuthn credential counter and last used
+  async updateWebAuthnCredentialCounter(credentialId: string, update: {
+    counter: number;
+    last_used: number;
+  }): Promise<{ success: boolean }> {
+    return await this.fetchApi<{ success: boolean }>(
+      `/api/webauthn/credentials/${credentialId}/counter`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(update),
+      }
+    );
+  }
+
+  // Store WebAuthn challenge (temporary)
+  async storeWebAuthnChallenge(challenge: {
+    id: string;
+    challenge: string;
+    user_id?: string;
+    challenge_type: 'registration' | 'authentication';
+    expires_at: number;
+  }): Promise<{ success: boolean }> {
+    return await this.fetchApi<{ success: boolean }>(
+      '/api/webauthn/challenges',
+      {
+        method: 'POST',
+        body: JSON.stringify(challenge),
+      }
+    );
+  }
+
+  // Get WebAuthn challenge
+  async getWebAuthnChallenge(challengeId: string): Promise<{
+    id: string;
+    challenge: string;
+    user_id?: string;
+    challenge_type: 'registration' | 'authentication';
+    expires_at: number;
+  } | null> {
+    try {
+      const data = await this.fetchApi<{ 
+        success: boolean; 
+        challenge?: {
+          id: string;
+          challenge: string;
+          user_id?: string;
+          challenge_type: 'registration' | 'authentication';
+          expires_at: number;
+        }
+      }>(
+        `/api/webauthn/challenges/${challengeId}`,
+        { method: 'GET' }
+      );
+      return data.challenge || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  // Delete WebAuthn challenge
+  async deleteWebAuthnChallenge(challengeId: string): Promise<{ success: boolean }> {
+    return await this.fetchApi<{ success: boolean }>(
+      `/api/webauthn/challenges/${challengeId}`,
+      { method: 'DELETE' }
+    );
   }
 }
 

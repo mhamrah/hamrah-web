@@ -22,15 +22,6 @@ export default defineConfig({
         delete: async () => { },
         list: async () => ({ keys: [] }),
       },
-      D1: {
-        // Mock D1 database for testing
-        prepare: () => ({
-          bind: () => ({ all: async () => [], first: async () => null }),
-          all: async () => [],
-          first: async () => null,
-        }),
-      },
-
     }),
     qwikVite(),
     tsconfigPaths(),

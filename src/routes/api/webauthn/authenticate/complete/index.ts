@@ -1,7 +1,8 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
-import { verifyWebAuthnAuthentication } from "~/lib/auth/webauthn";
+import { verifyWebAuthnAuthentication } from "~/lib/webauthn/server";
 import { setSessionTokenCookie } from "~/lib/auth/session";
+import { createApiClient } from "~/lib/auth/api-client";
 
 interface CompleteAuthenticationRequest {
   response: AuthenticationResponseJSON;
@@ -36,7 +37,8 @@ export const onPost: RequestHandler = async (event) => {
     const { response, challengeId }: CompleteAuthenticationRequest =
       body as CompleteAuthenticationRequest;
 
-    if (!challengeId) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime safety check
+    if (!challengeId || !response) {
       event.json(400, {
         success: false,
         error: "Missing required fields",
@@ -50,11 +52,7 @@ export const onPost: RequestHandler = async (event) => {
       challengeId,
     );
 
-    if (
-      !verification.verified ||
-      !verification.user ||
-      !verification.sessionToken
-    ) {
+    if (!verification.verified || !verification.user) {
       event.json(401, {
         success: false,
         error: "Authentication failed",
@@ -62,25 +60,35 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    // Create session via API
+    const api = createApiClient(event);
+    const sessionResult = await api.createSession({
+      user_id: verification.user.id,
+      platform: 'web',
+    });
+
+    if (!sessionResult.success || !sessionResult.session) {
+      event.json(500, {
+        success: false,
+        error: "Failed to create session",
+      });
+      return;
+    }
+
     // Set session cookie
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-    setSessionTokenCookie(event, verification.sessionToken, expiresAt);
+    setSessionTokenCookie(event, sessionResult.session, expiresAt);
 
     event.json(200, {
       success: true,
       message: "Authentication successful",
-      user: {
-        id: verification.user.id,
-        email: verification.user.email,
-        name: verification.user.name,
-        picture: verification.user.picture,
-      },
+      user: verification.user,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Complete authentication error:", error);
     event.json(500, {
       success: false,
-      error: "Failed to complete authentication",
+      error: error.message || "Failed to complete authentication",
     });
   }
 };

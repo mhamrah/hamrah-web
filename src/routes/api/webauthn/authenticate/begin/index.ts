@@ -1,5 +1,5 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
-import { generateWebAuthnAuthenticationOptions } from "~/lib/auth/webauthn";
+import { generateWebAuthnAuthenticationOptions } from "~/lib/webauthn/server";
 
 interface BeginAuthenticationRequest {
   email?: string;
@@ -33,17 +33,20 @@ export const onPost: RequestHandler = async (event) => {
     const { email }: BeginAuthenticationRequest =
       body as BeginAuthenticationRequest;
 
-    const options = await generateWebAuthnAuthenticationOptions(event, email);
+    const { options, challengeId } = await generateWebAuthnAuthenticationOptions(event, email);
 
     event.json(200, {
       success: true,
-      options,
+      options: {
+        ...options,
+        challengeId,
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Begin authentication error:", error);
     event.json(500, {
       success: false,
-      error: "Failed to begin authentication",
+      error: error.message || "Failed to begin authentication",
     });
   }
 };

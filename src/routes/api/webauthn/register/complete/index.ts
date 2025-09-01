@@ -1,11 +1,9 @@
 import type { RequestHandler } from "@builder.io/qwik-city";
 import type { RegistrationResponseJSON } from "@simplewebauthn/browser";
-import { verifyWebAuthnRegistration } from "~/lib/auth/webauthn";
-import { getCurrentUser, generateUserId } from "~/lib/auth/utils";
-
+import { verifyWebAuthnRegistration } from "~/lib/webauthn/server";
+import { getCurrentUser } from "~/lib/auth/utils";
+import { createApiClient } from "~/lib/auth/api-client";
 import {
-  generateSessionToken,
-  createSession,
   setSessionTokenCookie,
 } from "~/lib/auth/session";
 
@@ -22,7 +20,8 @@ export const onPost: RequestHandler = async (event) => {
     const { response, challengeId, email, name }: CompleteRegistrationRequest =
       body as CompleteRegistrationRequest;
 
-    if (!challengeId) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime safety check
+    if (!challengeId || !response) {
       event.json(400, {
         success: false,
         error: "Missing required fields",
@@ -30,27 +29,23 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Production flow
     // Check if user is already authenticated
     const { user: existingUser } = await getCurrentUser(event);
 
     let targetUser = existingUser;
 
-    // If no existing user, create one for new registration
+    // If no existing user, get the user that should have been created during begin
     if (!existingUser && email && name) {
-      // TODO: Replace with API client call to create user via hamrah-api
-      const userId = generateUserId();
+      const api = createApiClient(event);
+      targetUser = await api.getUserByEmail({ email });
 
-      targetUser = {
-        id: userId,
-        email,
-        name,
-        picture: null,
-        provider: null, // Passkey-only user
-        providerId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any;
+      if (!targetUser) {
+        event.json(400, {
+          success: false,
+          error: "User not found. Please restart the registration process.",
+        });
+        return;
+      }
     }
 
     if (!targetUser) {
@@ -65,7 +60,11 @@ export const onPost: RequestHandler = async (event) => {
       event,
       response,
       challengeId,
-      targetUser,
+      {
+        id: targetUser.id,
+        email: targetUser.email,
+        name: targetUser.name,
+      }
     );
 
     if (!verification.verified) {
@@ -78,22 +77,29 @@ export const onPost: RequestHandler = async (event) => {
 
     // If this was a new user registration, create a session
     if (!existingUser && verification.user) {
-      const sessionToken = generateSessionToken();
-      await createSession(event, sessionToken, verification.user.id);
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-      setSessionTokenCookie(event, sessionToken, expiresAt);
+      const api = createApiClient(event);
+      const sessionResult = await api.createSession({
+        user_id: verification.user.id,
+        platform: 'web',
+      });
+
+      if (sessionResult.success && sessionResult.session) {
+        const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
+        setSessionTokenCookie(event, sessionResult.session, expiresAt);
+      }
     }
 
     event.json(200, {
       success: true,
       message: "Passkey registered successfully",
       credentialId: verification.credentialId,
+      user: verification.user,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Complete registration error:", error);
     event.json(500, {
       success: false,
-      error: "Failed to complete registration",
+      error: error.message || "Failed to complete registration",
     });
   }
 };
