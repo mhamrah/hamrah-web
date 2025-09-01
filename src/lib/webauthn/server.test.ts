@@ -156,8 +156,8 @@ describe('WebAuthn Server', () => {
       expect(simpleWebAuthnServer.generateRegistrationOptions).toHaveBeenCalledWith(
         expect.objectContaining({
           excludeCredentials: [
-            { id: expect.any(Uint8Array), type: 'public-key', transports: [] },
-            { id: expect.any(Uint8Array), type: 'public-key', transports: [] },
+            { id: 'existing-cred-1', type: 'public-key', transports: [] },
+            { id: 'existing-cred-2', type: 'public-key', transports: [] },
           ],
         })
       );
@@ -169,15 +169,22 @@ describe('WebAuthn Server', () => {
       const user = { id: 'test-user-id', email: 'test@example.com' };
       await generateWebAuthnRegistrationOptions(mockEvent, user);
 
-      expect(simpleWebAuthnServer.generateRegistrationOptions).toHaveBeenCalledWith(
-        expect.objectContaining({
-          rpName: 'Hamrah',
-          rpID: 'localhost',
-          userName: 'test@example.com',
-          userID: expect.any(Uint8Array),
-          userDisplayName: 'test@example.com', // Falls back to email when name not provided
-        })
-      );
+      const call = vi.mocked(simpleWebAuthnServer.generateRegistrationOptions).mock.calls[0][0];
+      expect(call).toEqual(expect.objectContaining({
+        rpName: 'Hamrah',
+        rpID: 'localhost',
+        userName: 'test@example.com',
+        userDisplayName: 'test@example.com', // Falls back to email when name not provided
+        timeout: 60000,
+        attestationType: 'none',
+        excludeCredentials: [],
+        authenticatorSelection: {
+          userVerification: 'preferred',
+          residentKey: 'preferred',
+        },
+        supportedAlgorithmIDs: [-7, -257],
+      }));
+      expect(call.userID).toEqual(new TextEncoder().encode('test-user-id'));
     });
 
     it('should use correct RP configuration for production', async () => {
@@ -273,8 +280,8 @@ describe('WebAuthn Server', () => {
       expect(simpleWebAuthnServer.generateAuthenticationOptions).toHaveBeenCalledWith(
         expect.objectContaining({
           allowCredentials: [
-            { id: 'cred-1', type: 'public-key', transports: ['internal'] },
-            { id: 'cred-2', type: 'public-key', transports: ['usb'] },
+            { id: 'cred-1', type: 'public-key' },
+            { id: 'cred-2', type: 'public-key' },
           ],
         })
       );
