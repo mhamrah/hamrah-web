@@ -2,15 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { onPost } from "./index";
 import { createMockRequestEvent } from "../../../../../test/setup";
 
-// Mock the webauthn module
-vi.mock("../../../../../lib/auth/webauthn", () => ({
+// Mock the webauthn server module (correct path)
+vi.mock("../../../../../lib/webauthn/server", () => ({
   generateWebAuthnRegistrationOptions: vi.fn(),
-  generateWebAuthnRegistrationOptionsForNewUser: vi.fn(),
 }));
 
 // Mock the utils module
 vi.mock("../../../../../lib/auth/utils", () => ({
   getCurrentUser: vi.fn(),
+}));
+
+// Mock the api client
+vi.mock("../../../../../lib/auth/api-client", () => ({
+  createApiClient: vi.fn(),
 }));
 
 describe("/api/webauthn/register/begin", () => {
@@ -37,15 +41,24 @@ describe("/api/webauthn/register/begin", () => {
       attestation: "none" as const,
     };
 
+    const mockApiClient = {
+      getUserByEmail: vi.fn(),
+      createUser: vi.fn(),
+    };
+
     mockEvent.parseBody.mockResolvedValue({
       email: "test@example.com",
       name: "Test User",
     });
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
-      "../../../../../lib/auth/webauthn"
+    const { generateWebAuthnRegistrationOptions } = await import(
+      "../../../../../lib/webauthn/server"
     );
+    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+
+    // Mock createApiClient
+    vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
 
     // Mock getCurrentUser to return no authenticated user (new user registration)
     vi.mocked(getCurrentUser).mockResolvedValue({
@@ -54,20 +67,36 @@ describe("/api/webauthn/register/begin", () => {
       isValid: false,
     });
 
-    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
-      mockOptions,
-    );
+    // Mock user lookup - returns null (no existing user)
+    mockApiClient.getUserByEmail.mockResolvedValue(null);
+    
+    // Mock user creation
+    mockApiClient.createUser.mockResolvedValue({
+      success: true,
+      user: {
+        id: "new-user-id",
+        email: "test@example.com",
+        name: "Test User",
+      },
+    });
+
+    vi.mocked(generateWebAuthnRegistrationOptions).mockResolvedValue({
+      options: mockOptions,
+      challengeId: "test-challenge-id",
+    });
 
     await onPost(mockEvent);
 
     expect(mockEvent.json).toHaveBeenCalledWith(200, {
       success: true,
-      options: mockOptions,
+      options: {
+        ...mockOptions,
+        challengeId: "test-challenge-id",
+      },
     });
-    expect(generateWebAuthnRegistrationOptionsForNewUser).toHaveBeenCalledWith(
+    expect(generateWebAuthnRegistrationOptions).toHaveBeenCalledWith(
       mockEvent,
-      "test@example.com",
-      "Test User",
+      { id: "new-user-id", email: "test@example.com", name: "Test User" },
     );
   });
 
@@ -111,23 +140,47 @@ describe("/api/webauthn/register/begin", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => { });
+
+    const mockApiClient = {
+      getUserByEmail: vi.fn(),
+      createUser: vi.fn(),
+    };
+
     mockEvent.parseBody.mockResolvedValue({
       email: "test@example.com",
       name: "Test User",
     });
 
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
-      "../../../../../lib/auth/webauthn"
+    const { generateWebAuthnRegistrationOptions } = await import(
+      "../../../../../lib/webauthn/server"
     );
+    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+
+    // Mock createApiClient
+    vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
 
     vi.mocked(getCurrentUser).mockResolvedValue({
       session: null,
       user: null,
       isValid: false,
     });
+
+    // Mock user lookup - returns null (no existing user)
+    mockApiClient.getUserByEmail.mockResolvedValue(null);
+    
+    // Mock user creation
+    mockApiClient.createUser.mockResolvedValue({
+      success: true,
+      user: {
+        id: "new-user-id",
+        email: "test@example.com",
+        name: "Test User",
+      },
+    });
+
     const webauthnError = new Error("WebAuthn not supported");
-    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockRejectedValue(
+    vi.mocked(generateWebAuthnRegistrationOptions).mockRejectedValue(
       webauthnError,
     );
 
@@ -135,7 +188,7 @@ describe("/api/webauthn/register/begin", () => {
 
     expect(mockEvent.json).toHaveBeenCalledWith(500, {
       success: false,
-      error: "Failed to begin registration",
+      error: "WebAuthn not supported",
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       "Begin registration error:",
@@ -176,19 +229,25 @@ describe("/api/webauthn/register/begin", () => {
       attestation: "none" as const,
     };
 
+    const mockApiClient = {
+      getUserByEmail: vi.fn(),
+      createUser: vi.fn(),
+    };
+
     const { getCurrentUser } = await import("../../../../../lib/auth/utils");
-    const { generateWebAuthnRegistrationOptionsForNewUser } = await import(
-      "../../../../../lib/auth/webauthn"
+    const { generateWebAuthnRegistrationOptions } = await import(
+      "../../../../../lib/webauthn/server"
     );
+    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+
+    // Mock createApiClient
+    vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
 
     vi.mocked(getCurrentUser).mockResolvedValue({
       session: null,
       user: null,
       isValid: false,
     });
-    vi.mocked(generateWebAuthnRegistrationOptionsForNewUser).mockResolvedValue(
-      mockOptions,
-    );
 
     const validEmails = [
       "test@example.com",
@@ -198,11 +257,32 @@ describe("/api/webauthn/register/begin", () => {
     ];
 
     for (const email of validEmails) {
+      // Mock user lookup - returns null (no existing user)
+      mockApiClient.getUserByEmail.mockResolvedValue(null);
+      
+      // Mock user creation
+      mockApiClient.createUser.mockResolvedValue({
+        success: true,
+        user: {
+          id: "new-user-id",
+          email: email,
+          name: "Test User",
+        },
+      });
+
+      vi.mocked(generateWebAuthnRegistrationOptions).mockResolvedValue({
+        options: mockOptions,
+        challengeId: "test-challenge-id",
+      });
+
       mockEvent.parseBody.mockResolvedValue({ email, name: "Test User" });
       await onPost(mockEvent);
       expect(mockEvent.json).toHaveBeenCalledWith(200, {
         success: true,
-        options: mockOptions,
+        options: {
+          ...mockOptions,
+          challengeId: "test-challenge-id",
+        },
       });
       vi.clearAllMocks();
     }
