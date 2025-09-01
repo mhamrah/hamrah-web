@@ -13,8 +13,5 @@ test.describe('Basic Navigation', () => {
     
     // Should see Google sign-in button
     await expect(page.locator('[data-testid="google-signin-button"]')).toBeVisible();
-    
-    // Should see Passkey sign-in button
-    await expect(page.locator('[data-testid="passkey-signin-button"]')).toBeVisible();
   });
 });

@@ -25,13 +25,6 @@
     "cf-typegen": "wrangler types",
     "prepare": "pnpm dlx husky install",
     "qwik": "qwik",
-    "db:generate": "pnpm dlx drizzle-kit generate --config=drizzle.config.ts",
-    "db:push": "pnpm dlx drizzle-kit push --config=drizzle.config.ts",
-    "db:migrate": "pnpm wrangler d1 migrations apply prod-hamrah-app-auth",
-    "db:migrate:remote": "pnpm wrangler d1 migrations apply prod-hamrah-app-auth --remote",
-    "db:status": "pnpm wrangler d1 migrations list prod-hamrah-app-auth",
-    "db:status:remote": "pnpm wrangler d1 migrations list prod-hamrah-app-auth --remote",
-    "db:studio": "pnpm dlx drizzle-kit studio --config=drizzle.config.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -61,7 +54,6 @@
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "class-variance-authority": "^0.7.1",
-    "drizzle-kit": "0.31.4",
     "eslint": "9.34.0",
     "eslint-plugin-qwik": "^1.16.0",
     "globals": "^16.3.0",
@@ -86,10 +78,7 @@
   "dependencies": {
     "@oslojs/crypto": "1.0.1",
     "@oslojs/encoding": "1.1.0",
-    "@simplewebauthn/browser": "13.1.2",
-    "@simplewebauthn/server": "13.1.2",
     "arctic": "3.7.0",
-    "drizzle-orm": "0.44.5",
     "jose": "6.1.0"
   }
 }

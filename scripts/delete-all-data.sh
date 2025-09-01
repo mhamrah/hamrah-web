@@ -22,8 +22,7 @@ echo ""
 echo "Tables that will be cleared:"
 echo "  - users"
 echo "  - sessions" 
-echo "  - webauthn_credentials"
-echo "  - webauthn_challenges"
+
 echo "  - auth_tokens"
 echo ""
 
@@ -95,7 +94,7 @@ execute_sql() {
         echo -e "${YELLOW}Some tables may not exist, attempting individual deletions...${NC}"
         
         # Try individual table deletions
-        for table in auth_tokens webauthn_challenges webauthn_credentials sessions users; do
+        for table in auth_tokens sessions users; do
             local single_sql=$(mktemp)
             echo "DELETE FROM $table WHERE 1=1;" > "$single_sql"
             if npx wrangler d1 execute $DB_NAME $db_flag --file "$single_sql" 2>/dev/null; then
