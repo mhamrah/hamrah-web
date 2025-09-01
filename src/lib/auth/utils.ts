@@ -5,15 +5,15 @@ export async function getCurrentUser(event: RequestEventCommon): Promise<Session
   const sessionToken = event.cookie.get("session")?.value;
   
   if (!sessionToken) {
-    return { session: null, user: null, isValid: false };
+    return { success: false, session: null, user: null, isValid: false };
   }
   
   const result = await validateSessionToken(event, sessionToken);
-  // Add isValid property based on API response
+  // Add isValid property and create session object from token
   return {
-    ...result,
+    success: result.success || false,
     isValid: result.success || false,
-    session: result.session || null,
+    session: sessionToken ? { token: sessionToken, expiresAt: new Date() } : null,
     user: result.user || null,
   };
 }

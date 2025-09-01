@@ -61,10 +61,10 @@ export const onGet: RequestHandler = async (event) => {
       try {
         const sessionResult = await validateSessionToken(event, sessionToken);
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (sessionResult?.session && sessionResult?.user) {
+        if (sessionResult?.isValid && sessionResult?.user) {
           user = sessionResult.user;
           authMethod = "session";
-          expiresAt = sessionResult.session.expiresAt;
+          expiresAt = sessionResult.session?.expiresAt || null;
         }
       } catch (error) {
         console.error("Session validation error:", error);

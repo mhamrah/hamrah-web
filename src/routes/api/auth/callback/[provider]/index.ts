@@ -2,7 +2,7 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { getGoogleProvider, getAppleProvider } from "~/lib/auth/providers";
 import { validateOAuthState, parseCallbackParams } from "~/lib/auth/pkce";
 import { setSessionTokenCookie } from "~/lib/auth/session";
-import { createApiClient } from "~/lib/auth/api-client";
+import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 import type { Platform } from "~/lib/auth/tokens";
 
 /**
@@ -76,11 +76,11 @@ export const onGet: RequestHandler = async (event) => {
       codeVerifier,
     );
 
-    // Create user and session via API
-    const apiClient = createApiClient(event);
+    // Create user and session via internal API (service binding)
+    const internalApiClient = createInternalApiClient(event);
 
-    // Create user via API
-    const userResult = await apiClient.createUser({
+    // Create user via internal API
+    const userResult = await internalApiClient.createUser({
       email: userProfile.email,
       name: userProfile.name,
       picture: userProfile.picture,
@@ -95,19 +95,19 @@ export const onGet: RequestHandler = async (event) => {
       throw new Error("Failed to create/update user");
     }
 
-    // Create web session via API
-    const sessionResult = await apiClient.createSession({
+    // Create web session via internal API
+    const sessionResult = await internalApiClient.createSession({
       user_id: userResult.user.id,
       platform: "web",
     });
 
-    if (!sessionResult.success || !sessionResult.session) {
+    if (!sessionResult.success || !sessionResult.access_token) {
       throw new Error("Failed to create session");
     }
 
     // Set session cookie
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30 days
-    setSessionTokenCookie(event, sessionResult.session, expiresAt);
+    setSessionTokenCookie(event, sessionResult.access_token, expiresAt);
 
     // Clear OAuth cookies
     event.cookie.delete(`${provider}_oauth_state`);
@@ -162,11 +162,11 @@ export const onPost: RequestHandler = async (event) => {
       code_verifier,
     );
 
-    // Create user and tokens via API
-    const apiClient = createApiClient(event);
+    // Create user and tokens via internal API (service binding)
+    const internalApiClient = createInternalApiClient(event);
 
-    // First create user via API
-    const userResult = await apiClient.createUser({
+    // Create tokens directly (which creates/updates user automatically)
+    const tokenResult = await internalApiClient.createTokens({
       email: userProfile.email,
       name: userProfile.name,
       picture: userProfile.picture,
@@ -177,17 +177,11 @@ export const onPost: RequestHandler = async (event) => {
       user_agent: event.request.headers.get("User-Agent") || undefined,
     });
 
-    if (!userResult.success || !userResult.user) {
-      throw new Error("Failed to create/update user");
-    }
-
-    // Then create tokens for mobile/API access
-    const tokenResult = await apiClient.createTokens({
-      user_id: userResult.user.id,
-      platform: platform as "web" | "ios",
-    });
-
-    if (!tokenResult.success || !tokenResult.access_token) {
+    if (
+      !tokenResult.success ||
+      !tokenResult.access_token ||
+      !tokenResult.user
+    ) {
       throw new Error("Failed to create tokens");
     }
 
@@ -197,10 +191,10 @@ export const onPost: RequestHandler = async (event) => {
       token_type: "Bearer",
       expires_in: tokenResult.expires_in || 3600,
       user: {
-        id: userResult.user.id,
-        email: userResult.user.email,
-        name: userResult.user.name || "User",
-        picture: userResult.user.picture,
+        id: tokenResult.user.id,
+        email: tokenResult.user.email,
+        name: tokenResult.user.name || "User",
+        picture: tokenResult.user.picture,
       },
     };
 
