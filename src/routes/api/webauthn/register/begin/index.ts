@@ -19,14 +19,12 @@ export const onPost: RequestHandler = async (event) => {
 
     if (currentUserResult.user) {
       // Existing user adding a passkey
-      const { options, challengeId } = await generateWebAuthnRegistrationOptions(
-        event,
-        {
+      const { options, challengeId } =
+        await generateWebAuthnRegistrationOptions(event, {
           id: currentUserResult.user.id,
           email: currentUserResult.user.email,
           name: currentUserResult.user.name,
-        }
-      );
+        });
 
       event.json(200, {
         success: true,
@@ -40,22 +38,22 @@ export const onPost: RequestHandler = async (event) => {
       // Create user first
       const api = createApiClient(event);
       let user = await api.getUserByEmail({ email });
-      
+
       if (!user) {
         const createUserResult = await api.createUser({
           email,
           name,
-          auth_method: 'webauthn',
-          provider: 'webauthn',
+          auth_method: "webauthn",
+          provider: "webauthn",
           provider_id: email,
-          platform: 'web',
-          user_agent: event.request.headers.get('User-Agent') || undefined,
+          platform: "web",
+          user_agent: event.request.headers.get("User-Agent") || undefined,
         });
 
         if (!createUserResult.success || !createUserResult.user) {
           event.json(500, {
             success: false,
-            error: 'Failed to create user'
+            error: "Failed to create user",
           });
           return;
         }
@@ -63,10 +61,12 @@ export const onPost: RequestHandler = async (event) => {
         user = createUserResult.user;
       }
 
-      const { options, challengeId } = await generateWebAuthnRegistrationOptions(
-        event,
-        { id: user.id, email: user.email, name: user.name }
-      );
+      const { options, challengeId } =
+        await generateWebAuthnRegistrationOptions(event, {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        });
 
       event.json(200, {
         success: true,

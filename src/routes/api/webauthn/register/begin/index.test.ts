@@ -55,7 +55,9 @@ describe("/api/webauthn/register/begin", () => {
     const { generateWebAuthnRegistrationOptions } = await import(
       "../../../../../lib/webauthn/server"
     );
-    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+    const { createApiClient } = await import(
+      "../../../../../lib/auth/api-client"
+    );
 
     // Mock createApiClient
     vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
@@ -69,7 +71,7 @@ describe("/api/webauthn/register/begin", () => {
 
     // Mock user lookup - returns null (no existing user)
     mockApiClient.getUserByEmail.mockResolvedValue(null);
-    
+
     // Mock user creation
     mockApiClient.createUser.mockResolvedValue({
       success: true,
@@ -139,7 +141,7 @@ describe("/api/webauthn/register/begin", () => {
   it("should handle webauthn generation errors", async () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
-      .mockImplementation(() => { });
+      .mockImplementation(() => {});
 
     const mockApiClient = {
       getUserByEmail: vi.fn(),
@@ -155,7 +157,9 @@ describe("/api/webauthn/register/begin", () => {
     const { generateWebAuthnRegistrationOptions } = await import(
       "../../../../../lib/webauthn/server"
     );
-    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+    const { createApiClient } = await import(
+      "../../../../../lib/auth/api-client"
+    );
 
     // Mock createApiClient
     vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
@@ -168,7 +172,7 @@ describe("/api/webauthn/register/begin", () => {
 
     // Mock user lookup - returns null (no existing user)
     mockApiClient.getUserByEmail.mockResolvedValue(null);
-    
+
     // Mock user creation
     mockApiClient.createUser.mockResolvedValue({
       success: true,
@@ -238,7 +242,9 @@ describe("/api/webauthn/register/begin", () => {
     const { generateWebAuthnRegistrationOptions } = await import(
       "../../../../../lib/webauthn/server"
     );
-    const { createApiClient } = await import("../../../../../lib/auth/api-client");
+    const { createApiClient } = await import(
+      "../../../../../lib/auth/api-client"
+    );
 
     // Mock createApiClient
     vi.mocked(createApiClient).mockReturnValue(mockApiClient as any);
@@ -259,7 +265,7 @@ describe("/api/webauthn/register/begin", () => {
     for (const email of validEmails) {
       // Mock user lookup - returns null (no existing user)
       mockApiClient.getUserByEmail.mockResolvedValue(null);
-      
+
       // Mock user creation
       mockApiClient.createUser.mockResolvedValue({
         success: true,

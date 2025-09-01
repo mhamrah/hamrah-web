@@ -3,9 +3,7 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/browser";
 import { verifyWebAuthnRegistration } from "~/lib/webauthn/server";
 import { getCurrentUser } from "~/lib/auth/utils";
 import { createApiClient } from "~/lib/auth/api-client";
-import {
-  setSessionTokenCookie,
-} from "~/lib/auth/session";
+import { setSessionTokenCookie } from "~/lib/auth/session";
 
 interface CompleteRegistrationRequest {
   response: RegistrationResponseJSON;
@@ -64,7 +62,7 @@ export const onPost: RequestHandler = async (event) => {
         id: targetUser.id,
         email: targetUser.email,
         name: targetUser.name,
-      }
+      },
     );
 
     if (!verification.verified) {
@@ -80,7 +78,7 @@ export const onPost: RequestHandler = async (event) => {
       const api = createApiClient(event);
       const sessionResult = await api.createSession({
         user_id: verification.user.id,
-        platform: 'web',
+        platform: "web",
       });
 
       if (sessionResult.success && sessionResult.session) {

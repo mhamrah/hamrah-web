@@ -33,7 +33,8 @@ export const onPost: RequestHandler = async (event) => {
     const { email }: BeginAuthenticationRequest =
       body as BeginAuthenticationRequest;
 
-    const { options, challengeId } = await generateWebAuthnAuthenticationOptions(event, email);
+    const { options, challengeId } =
+      await generateWebAuthnAuthenticationOptions(event, email);
 
     event.json(200, {
       success: true,

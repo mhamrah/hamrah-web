@@ -64,7 +64,7 @@ export const onPost: RequestHandler = async (event) => {
     const api = createApiClient(event);
     const sessionResult = await api.createSession({
       user_id: verification.user.id,
-      platform: 'web',
+      platform: "web",
     });
 
     if (!sessionResult.success || !sessionResult.session) {

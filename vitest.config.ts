@@ -19,7 +19,7 @@ export default defineConfig({
           COOKIE_SECRET: "test-cookie-secret-32-chars-long",
         },
         cf: {},
-        delete: async () => { },
+        delete: async () => {},
         list: async () => ({ keys: [] }),
       },
     }),
