@@ -71,7 +71,6 @@ export function createMockRequestEvent(
               new Response(JSON.stringify({ success: true }), { status: 200 }),
             ),
         },
-        DB: {} as any, // Mock D1 database for drizzle
       },
       cf: {},
       KV: {
@@ -79,16 +78,6 @@ export function createMockRequestEvent(
         put: vi.fn().mockResolvedValue(undefined),
         delete: vi.fn().mockResolvedValue(undefined),
         list: vi.fn().mockResolvedValue({ keys: [] }),
-      },
-      D1: {
-        prepare: vi.fn().mockReturnValue({
-          bind: vi.fn().mockReturnValue({
-            all: vi.fn().mockResolvedValue([]),
-            first: vi.fn().mockResolvedValue(null),
-          }),
-          all: vi.fn().mockResolvedValue([]),
-          first: vi.fn().mockResolvedValue(null),
-        }),
       },
     },
     cookie: {
@@ -104,33 +93,6 @@ export function createMockRequestEvent(
     parseBody: vi.fn().mockResolvedValue({}),
     ...overrides,
   } as any;
-}
-
-// Helper function to mock successful database responses
-export function mockDBResponse(data: any[]) {
-  return {
-    prepare: vi.fn().mockReturnValue({
-      bind: vi.fn().mockReturnValue({
-        all: vi.fn().mockResolvedValue(data),
-        first: vi.fn().mockResolvedValue(data[0] || null),
-      }),
-      all: vi.fn().mockResolvedValue(data),
-      first: vi.fn().mockResolvedValue(data[0] || null),
-    }),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockResolvedValue({ success: true }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue({ success: true }),
-      }),
-    }),
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(data),
-      }),
-    }),
-  };
 }
 
 // Helper function to mock fetch responses

@@ -2,8 +2,6 @@ import type { RequestHandler } from "@builder.io/qwik-city";
 import { createTokenPair, type Platform } from "~/lib/auth/tokens";
 import { validateSessionToken } from "~/lib/auth/session";
 
-// import { eq } from "drizzle-orm"; // TODO: Remove when migrating to API-only architecture
-
 /**
  * Token Exchange Endpoint
  * POST /api/auth/token/exchange
