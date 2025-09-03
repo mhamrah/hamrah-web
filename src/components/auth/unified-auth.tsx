@@ -1,7 +1,6 @@
 import { component$, useSignal, $, type QRL } from "@builder.io/qwik";
 import { PasskeyLogin } from "./passkey-login";
 import { PasskeySignup } from "./passkey-signup";
-import { WebAuthnClient } from "~/lib/auth/webauthn";
 
 interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
@@ -44,11 +43,8 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   });
 
   const handlePasskeyStart = $(async () => {
-    if (!WebAuthnClient.isSupported()) {
-      error.value = "Passkeys are not supported in this browser";
-      return;
-    }
-    
+    // TODO: Add browser support check for WebAuthn
+    // For now, always show email input
     showEmailInput.value = true;
   });
 
@@ -63,17 +59,11 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
     error.value = "";
     
     try {
-      const webauthnClient = await import("~/lib/auth/webauthn").then(m => m.webauthnClient);
-      const hasPasskeys = await webauthnClient.hasPasskeys(email);
-      
+      // TODO: Check if user has existing passkeys
+      // For now, always default to signup since WebAuthn is not fully implemented
       passkeyEmail.value = email;
       showEmailInput.value = false;
-      
-      if (hasPasskeys) {
-        showPasskeyLogin.value = true;
-      } else {
-        showPasskeySignup.value = true;
-      }
+      showPasskeySignup.value = true;
     } catch {
       error.value = "Failed to check passkey status. Please try again.";
     } finally {
@@ -244,12 +234,12 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
                 class="mr-2 h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
-                strokeWidth={1.5}
+                stroke-width={1.5}
                 stroke="currentColor"
               >
                 <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                   d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
                 />
               </svg>
