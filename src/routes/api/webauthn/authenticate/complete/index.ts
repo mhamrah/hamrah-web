@@ -11,14 +11,14 @@ const EXPECTED_ORIGIN = "https://hamrah.app";
 
 export const onPost: RequestHandler = async (event) => {
   try {
-    const body = await event.request.json() as { 
-      response?: any; 
-      challengeId?: string; 
-      email?: string 
+    const body = (await event.request.json()) as {
+      response: any;
+      challengeId: string;
+      email: string;
     };
-    const { response: authResponse, challengeId } = body;
+    const { response: authResponse, challengeId, email } = body;
 
-    if (!authResponse || !challengeId) {
+    if (!authResponse || !challengeId || !email) {
       event.json(400, {
         success: false,
         error: "Missing required fields",
@@ -29,80 +29,58 @@ export const onPost: RequestHandler = async (event) => {
     const apiClient = createInternalApiClient(event);
 
     // Get and verify challenge
-    let challenge: any;
-    try {
-      const challengeResponse = await apiClient.get(
-        `/api/webauthn/challenges/${challengeId}`
-      );
+    const challengeResponse = await apiClient.get(
+      `/api/webauthn/challenges/${challengeId}`,
+    );
 
-      if (!challengeResponse.success || !challengeResponse.challenge) {
-        event.json(400, {
-          success: false,
-          error: "Invalid or expired challenge",
-        });
-        return;
-      }
-
-      challenge = challengeResponse.challenge;
-
-      // Check if challenge has expired
-      if (challenge.expires_at < Date.now()) {
-        event.json(400, {
-          success: false,
-          error: "Challenge expired",
-        });
-        return;
-      }
-    } catch (error) {
-      console.error("Challenge lookup error:", error);
-      event.json(500, {
+    if (!challengeResponse.success || !challengeResponse.challenge) {
+      event.json(400, {
         success: false,
-        error: "Failed to verify challenge",
+        error: "Invalid or expired challenge",
+      });
+      return;
+    }
+
+    const challenge = challengeResponse.challenge;
+
+    // Check if challenge has expired
+    if (challenge.expires_at < Date.now()) {
+      event.json(400, {
+        success: false,
+        error: "Challenge expired",
+      });
+      return;
+    }
+
+    // Get user credentials
+    const credentialsResponse = await apiClient.get(
+      `/api/webauthn/users/${challenge.user_id}/credentials`,
+    );
+
+    if (
+      !credentialsResponse.success ||
+      !credentialsResponse.credentials ||
+      credentialsResponse.credentials.length === 0
+    ) {
+      event.json(404, {
+        success: false,
+        error: "No credentials found",
       });
       return;
     }
 
     // Find the credential that was used for authentication
-    const credentialId = Buffer.from(authResponse.rawId, "base64url").toString("base64url");
-    
-    let credential: any;
-    let user: any;
+    const credentialId = Buffer.from(authResponse.rawId, "base64url").toString(
+      "base64url",
+    );
+    const credential = credentialsResponse.credentials.find(
+      (cred: any) => cred.id === credentialId,
+    );
 
-    try {
-      // First try to find the credential directly
-      const credentialResponse = await apiClient.get(
-        `/api/webauthn/credentials/${credentialId}`
-      );
-
-      if (!credentialResponse.success || !credentialResponse.credential) {
-        event.json(400, {
-          success: false,
-          error: "Unknown credential used",
-        });
-        return;
-      }
-
-      credential = credentialResponse.credential;
-
-      // Get the user associated with this credential
-      const userResponse = await apiClient.get(
-        `/api/users/${credential.user_id}`
-      );
-
-      if (!userResponse.success || !userResponse.user) {
-        event.json(400, {
-          success: false,
-          error: "User not found for credential",
-        });
-        return;
-      }
-
-      user = userResponse.user;
-    } catch (error) {
-      console.error("Credential/user lookup error:", error);
-      event.json(500, {
+    if (!credential) {
+      event.json(400, {
         success: false,
-        error: "Failed to verify credential",
+        error: "Unknown credential used",
       });
       return;
     }
@@ -115,24 +93,16 @@ export const onPost: RequestHandler = async (event) => {
       expectedRPID: RP_ID,
       credential: {
         id: credential.id,
-        publicKey: Buffer.from(credential.public_key, "base64"),
+        publicKey: new Uint8Array(Buffer.from(credential.public_key, "base64")),
         counter: credential.counter,
-        transports: credential.transports ? JSON.parse(credential.transports) : [],
+        transports: credential.transports
+          ? JSON.parse(credential.transports)
+          : [],
       },
       requireUserVerification: true,
     };
 
-    let verificationResult: any;
-    try {
-      verificationResult = await verifyAuthenticationResponse(verification);
-    } catch (error) {
-      console.error("Authentication verification error:", error);
-      event.json(400, {
-        success: false,
-        error: "Authentication verification failed",
-      });
-      return;
-    }
+    const verificationResult = await verifyAuthenticationResponse(verification);
 
     if (!verificationResult.verified) {
       event.json(400, {
@@ -142,45 +112,39 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Update credential counter and last used timestamp
-    try {
-      await apiClient.patch(`/api/webauthn/credentials/${credential.id}/counter`, {
+    // Update credential counter
+    await apiClient.patch(
+      `/api/webauthn/credentials/${credential.id}/counter`,
+      {
         counter: verificationResult.authenticationInfo.newCounter,
         last_used: Date.now(),
-      });
-    } catch (error) {
-      console.warn("Failed to update credential counter:", error);
-      // Don't fail the authentication for this
-    }
+      },
+    );
 
-    // Create session for the user
-    let sessionResponse: any;
-    try {
-      sessionResponse = await apiClient.createSession({
-        user_id: user.id,
-        platform: "web",
-      });
-    } catch (error) {
-      console.error("Session creation error:", error);
+    // Get user information
+    const userResponse = await apiClient.get(
+      `/api/users/by-email/${encodeURIComponent(email)}`,
+    );
+
+    if (!userResponse.success || !userResponse.user) {
       event.json(500, {
         success: false,
-        error: "Failed to create session",
+        error: "User not found after authentication",
       });
       return;
     }
 
+    // Create session for the user (this would be handled by the iOS app's native auth flow)
+    // For now, just return success with user info
+    // The iOS app will handle creating tokens through its native auth flow
+
     // Clean up challenge
-    try {
-      await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
-    } catch (error) {
-      console.warn("Failed to clean up challenge:", error);
-    }
+    await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
 
     event.json(200, {
       success: true,
       message: "Authentication successful",
-      user: user,
-      sessionToken: sessionResponse.session?.token,
+      user: userResponse.user,
     });
   } catch (error) {
     console.error("WebAuthn authentication complete error:", error);
@@ -188,5 +152,6 @@ export const onPost: RequestHandler = async (event) => {
       success: false,
       error: "Failed to complete authentication",
     });
+    return;
   }
 };
