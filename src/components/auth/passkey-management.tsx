@@ -25,7 +25,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
     const loadPasskeys = $(async () => {
       isLoading.value = true;
       try {
-        const userPasskeys = await webauthnClient.getUserPasskeys(props.userId);
+        const userPasskeys = await webauthnClient.getUserCredentials(props.userId);
         passkeys.value = userPasskeys;
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Failed to load passkeys";
@@ -50,7 +50,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
           return;
         }
 
-        const result = await webauthnClient.addPasskey();
+        const result = await webauthnClient.addPasskeyToAccount();
 
         if (result.success) {
           success.value = "Passkey added successfully!";
@@ -71,7 +71,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
       }
 
       try {
-        const deleteSuccess = await webauthnClient.deletePasskey(credentialId);
+        const deleteSuccess = await webauthnClient.deleteCredential(credentialId);
         if (deleteSuccess) {
           await loadPasskeys();
           success.value = "Passkey deleted successfully!";
@@ -95,7 +95,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
       }
 
       try {
-        const renameSuccess = await webauthnClient.renamePasskey(
+        const renameSuccess = await webauthnClient.renameCredential(
           credentialId,
           editingName.value.trim()
         );
@@ -150,7 +150,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
                   class="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke-width={1.5}
+                  stroke-width="1.5"
                   stroke="currentColor"
                 >
                   <path
@@ -187,7 +187,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
               class="mx-auto h-12 w-12 text-gray-400"
               fill="none"
               viewBox="0 0 24 24"
-              stroke-width={1.5}
+              stroke-width="1.5"
               stroke="currentColor"
             >
               <path
@@ -217,7 +217,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
                         class="h-5 w-5 text-blue-600"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke-width={1.5}
+                        stroke-width="1.5"
                         stroke="currentColor"
                       >
                         <path
@@ -277,7 +277,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
                           class="h-4 w-4"
                           fill="none"
                           viewBox="0 0 24 24"
-                          stroke-width={1.5}
+                          stroke-width="1.5"
                           stroke="currentColor"
                         >
                           <path
@@ -297,7 +297,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
                           class="h-4 w-4"
                           fill="none"
                           viewBox="0 0 24 24"
-                          stroke-width={1.5}
+                          stroke-width="1.5"
                           stroke="currentColor"
                         >
                           <path
@@ -321,7 +321,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>(
               class="h-5 w-5 text-blue-400"
               fill="none"
               viewBox="0 0 24 24"
-              stroke-width={1.5}
+              stroke-width="1.5"
               stroke="currentColor"
             >
               <path

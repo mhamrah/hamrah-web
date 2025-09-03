@@ -1,4 +1,4 @@
-import { component$, useSignal, $, useComputed$, type QRL } from "@builder.io/qwik";
+import { component$, useSignal, $, useComputed$, useVisibleTask$, type QRL } from "@builder.io/qwik";
 import { webauthnClient } from "~/lib/auth/webauthn";
 
 interface PasskeySignupProps {
@@ -7,6 +7,7 @@ interface PasskeySignupProps {
   onCancel?: QRL<() => void>;
   onRequiresOAuth?: QRL<(email: string) => void>;
   oauthVerified?: boolean;
+  initialEmail?: string;
 }
 
 export const PasskeySignup = component$<PasskeySignupProps>((props) => {
@@ -14,6 +15,14 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
   const name = useSignal("");
   const isLoading = useSignal(false);
   const error = useSignal<string>("");
+
+  // Initialize email from props if provided
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(() => {
+    if (props.initialEmail) {
+      email.value = props.initialEmail;
+    }
+  });
 
   const canSignUp = useComputed$(() => {
     return (
@@ -30,11 +39,11 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
     error.value = "";
 
     try {
-      const result = await webauthnClient.registerPasskey(email.value.trim(), name.value.trim());
+      const result = await webauthnClient.register(email.value.trim(), name.value.trim());
 
       if (result.success) {
         // After successful registration, we need to authenticate to get a session
-        const authResult = await webauthnClient.authenticateWithPasskey(email.value.trim());
+        const authResult = await webauthnClient.authenticate(email.value.trim());
 
         if (authResult.success && authResult.user) {
           await props.onSuccess?.(authResult.user);
@@ -72,7 +81,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
             class="h-8 w-8 text-purple-600"
             fill="none"
             viewBox="0 0 24 24"
-            stroke-width={1.5}
+            stroke-width="1.5"
             stroke="currentColor"
           >
             <path
@@ -156,7 +165,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
                 class="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width={1.5}
+                stroke-width="1.5"
                 stroke="currentColor"
               >
                 <path
