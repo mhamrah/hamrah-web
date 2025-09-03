@@ -57,8 +57,8 @@ describe('WebAuthnClient', () => {
     });
 
     // Get access to the mock API client
-    const { mockApiClient: importedMockApiClient } = await import('./api-client');
-    mockApiClient = importedMockApiClient;
+    const apiClientModule = await import('./api-client') as any;
+    mockApiClient = apiClientModule.mockApiClient;
 
     // Create a fresh WebAuthn client instance
     webauthnClient = new WebAuthnClient();
