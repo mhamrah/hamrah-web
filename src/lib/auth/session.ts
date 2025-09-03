@@ -52,6 +52,41 @@ export function deleteSessionTokenCookie(event: RequestEventCommon): void {
   event.cookie.delete("session", { path: "/" });
 }
 
+// Cookie-based session validation (for use in routes that need Cookie access)
+export async function validateSession(cookie: any): Promise<SessionValidationResult> {
+  const sessionToken = cookie.get("session")?.value;
+  if (!sessionToken) {
+    return {
+      success: false,
+      isValid: false,
+      user: null,
+      error: "No session token",
+    };
+  }
+
+  // For now, return a basic validation. In a real implementation,
+  // this would validate the session token against the API
+  try {
+    // This is a simplified implementation - you'd typically validate via API
+    const apiClient = createApiClient();
+    const result = await apiClient.validateSession();
+    
+    return {
+      success: result.success,
+      isValid: result.success,
+      user: result.user,
+      error: result.error,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      isValid: false,
+      user: null,
+      error: "Session validation failed",
+    };
+  }
+}
+
 export function invalidateSession(event: any, sessionId: string): any {
   throw new Error("invalidateSession has been moved to hamrah-api");
 }
@@ -61,4 +96,5 @@ export interface SessionValidationResult {
   user?: any;
   session?: { token: string; expiresAt: Date } | null;
   isValid: boolean;
+  error?: string;
 }

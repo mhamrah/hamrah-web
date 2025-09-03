@@ -135,6 +135,36 @@ export class HamrahApiClient {
       body: JSON.stringify(params),
     });
   }
+
+  // Generic fetch methods for WebAuthn endpoints
+  async get<T = any>(path: string): Promise<T> {
+    return this.fetchApi<T>(path, { method: 'GET' });
+  }
+
+  async post<T = any>(path: string, body: any): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async put<T = any>(path: string, body: any): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async patch<T = any>(path: string, body: any): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  async delete<T = any>(path: string): Promise<T> {
+    return this.fetchApi<T>(path, { method: 'DELETE' });
+  }
 }
 
 /**

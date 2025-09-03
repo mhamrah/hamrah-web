@@ -1,4 +1,8 @@
 import { component$, useSignal, $, type QRL } from "@builder.io/qwik";
+import { PasskeyLogin } from "./passkey-login";
+import { PasskeySignup } from "./passkey-signup";
+import { ConditionalPasskeyInput } from "./conditional-passkey-input";
+import { webauthnClient } from "~/lib/auth/webauthn";
 
 interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
@@ -12,6 +16,10 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   const error = useSignal<string>(props.initialError || "");
   const popupBlocked = useSignal(false);
   const success = useSignal<string>("");
+  const showPasskeyLogin = useSignal(false);
+  const showPasskeySignup = useSignal(false);
+  const passkeyEmail = useSignal("");
+  const showEmailInput = useSignal(false);
 
   const redirectUrl = props.redirectUrl;
 
@@ -34,6 +42,109 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       window.location.href = "/auth/apple";
     }
   });
+
+  const handlePasskeyStart = $(async () => {
+    const supportsWebAuthn = await webauthnClient.isWebAuthnSupported();
+    if (!supportsWebAuthn) {
+      error.value = "Your browser doesn't support passkeys. Please use Google or Apple sign-in.";
+      return;
+    }
+    showEmailInput.value = true;
+  });
+
+  const handleEmailSubmit = $(async (email: string) => {
+    if (!email || !email.includes("@")) {
+      error.value = "Please enter a valid email address";
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = "";
+    
+    try {
+      // Check if user has existing passkeys via authentication attempt
+      const hasPasskeys = await webauthnClient.hasPasskeysForUser(email);
+      
+      passkeyEmail.value = email;
+      showEmailInput.value = false;
+      
+      if (hasPasskeys) {
+        showPasskeyLogin.value = true;
+      } else {
+        showPasskeySignup.value = true;
+      }
+    } catch {
+      // If check fails, default to signup
+      passkeyEmail.value = email;
+      showEmailInput.value = false;
+      showPasskeySignup.value = true;
+    } finally {
+      isLoading.value = false;
+    }
+  });
+
+  const handlePasskeySuccess = $(async (user: any, sessionToken?: string) => {
+    success.value = "Successfully signed in with passkey!";
+    if (sessionToken) {
+      // Set session cookie if provided
+      document.cookie = `session=${sessionToken}; path=/; secure; samesite=strict`;
+    }
+    await props.onSuccess?.(user);
+  });
+
+  const handlePasskeyError = $(async (errorMsg: string) => {
+    error.value = errorMsg;
+    await props.onError?.(errorMsg);
+  });
+
+  const handlePasskeyCancel = $(async () => {
+    showPasskeyLogin.value = false;
+    showPasskeySignup.value = false;
+    showEmailInput.value = false;
+    passkeyEmail.value = "";
+  });
+
+  const handleRequiresOAuth = $(async (email: string) => {
+    // User exists and requires OAuth - redirect to OAuth with return flow
+    error.value = `This email is associated with an existing account. Redirecting to sign in...`;
+    
+    // Store the email for passkey creation after OAuth
+    sessionStorage.setItem('pendingPasskeyEmail', email);
+    sessionStorage.setItem('returnToPasskeyCreation', 'true');
+    
+    // Redirect to OAuth flow
+    setTimeout(() => {
+      if (redirectUrl) {
+        window.location.href = `/auth/google?redirect=${encodeURIComponent(redirectUrl)}&passkey=pending`;
+      } else {
+        window.location.href = '/auth/google?passkey=pending';
+      }
+    }, 1500);
+  });
+
+  // Show passkey components when activated
+  if (showPasskeyLogin.value) {
+    return (
+      <PasskeyLogin
+        email={passkeyEmail.value}
+        onSuccess={handlePasskeySuccess}
+        onError={handlePasskeyError}
+        onCancel={handlePasskeyCancel}
+      />
+    );
+  }
+
+  if (showPasskeySignup.value) {
+    return (
+      <PasskeySignup
+        initialEmail={passkeyEmail.value}
+        onSuccess={handlePasskeySuccess}
+        onError={handlePasskeyError}
+        onCancel={handlePasskeyCancel}
+        onRequiresOAuth={handleRequiresOAuth}
+      />
+    );
+  }
 
   return (
     <div class="space-y-6">
@@ -86,6 +197,50 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       )}
 
       <div class="space-y-4">
+        {/* Passkey Option - Primary with Conditional UI */}
+        <div class="space-y-3">
+          {showEmailInput.value ? (
+            <div class="space-y-3">
+              <ConditionalPasskeyInput
+                placeholder="Enter your email or use your passkey"
+                onPasskeyAuth={handlePasskeySuccess}
+                onError={handlePasskeyError}
+                onEmailSubmit={handleEmailSubmit}
+              />
+              <button
+                type="button"
+                onClick$={handlePasskeyCancel}
+                disabled={isLoading.value}
+                class="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Use different method
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick$={handlePasskeyStart}
+              disabled={isLoading.value}
+              class="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg
+                class="mr-2 h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+                />
+              </svg>
+              Continue with Passkey
+            </button>
+          )}
+        </div>
+
         {/* Divider */}
         <div class="relative">
           <div class="absolute inset-0 flex items-center">

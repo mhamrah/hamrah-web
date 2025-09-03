@@ -1,6 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { useUserLoader } from "../../layout";
+import { PasskeyManagement } from "~/components/auth/passkey-management";
 
 export default component$(() => {
   const user = useUserLoader();
@@ -81,6 +82,16 @@ export default component$(() => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Passkey Management Section */}
+          <div class="border-t pt-6 mt-6">
+            <h2 class="mb-4 text-xl font-semibold text-gray-900">
+              Passkey Management
+            </h2>
+            <div class="bg-gray-50 rounded-lg p-4">
+              <PasskeyManagement userId={user.value.id} />
             </div>
           </div>
         </div>
