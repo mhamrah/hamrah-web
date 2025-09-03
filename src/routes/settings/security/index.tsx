@@ -86,11 +86,11 @@ export default component$(() => {
           </div>
 
           {/* Passkey Management Section */}
-          <div class="border-t pt-6 mt-6">
+          <div class="mt-6 border-t pt-6">
             <h2 class="mb-4 text-xl font-semibold text-gray-900">
               Passkey Management
             </h2>
-            <div class="bg-gray-50 rounded-lg p-4">
+            <div class="rounded-lg bg-gray-50 p-4">
               <PasskeyManagement userId={user.value.id} />
             </div>
           </div>

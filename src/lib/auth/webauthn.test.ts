@@ -18,7 +18,7 @@ vi.mock('@simplewebauthn/server', () => ({
 
 // Mock internal API client
 vi.mock('./internal-api-client', () => ({
-  createApiClient: vi.fn(() => ({
+  createInternalApiClient: vi.fn(() => ({
     get: vi.fn(),
     post: vi.fn(),
     patch: vi.fn(),
@@ -35,7 +35,7 @@ describe('WebAuthnClient', () => {
     // Mock crypto.randomUUID
     global.crypto = {
       ...global.crypto,
-      randomUUID: vi.fn(() => 'test-uuid-1234'),
+      randomUUID: vi.fn(() => 'test-uuid-1234') as () => `${string}-${string}-${string}-${string}-${string}`,
     };
 
     // Mock window.PublicKeyCredential for WebAuthn support
@@ -53,8 +53,8 @@ describe('WebAuthnClient', () => {
     });
 
     // Get the mocked API client
-    const { createApiClient } = await import('./internal-api-client');
-    mockApiClient = createApiClient();
+    const { createInternalApiClient } = await import('./internal-api-client');
+    mockApiClient = createInternalApiClient({} as any);
   });
 
   describe('isSupported', () => {

@@ -10,47 +10,64 @@ const RP_ID = "hamrah.app";
 
 export const onPost: RequestHandler = async (event) => {
   try {
-    const body = await event.request.json() as { email?: string };
+    const body = (await event.request.json()) as { email: string };
     const { email } = body;
+
+    if (!email) {
+      event.json(400, {
+        success: false,
+        error: "Email is required",
+      });
+      return;
+    }
 
     const apiClient = createInternalApiClient(event);
 
-    let allowCredentials: any[] = [];
-    let userId: string | undefined;
+    // Get user by email
+    const userResponse = await apiClient.get(
+      `/api/users/by-email/${encodeURIComponent(email)}`,
+    );
 
-    // If email is provided, get user's specific credentials
-    if (email) {
-      try {
-        const userResponse = await apiClient.get(
-          `/api/users/by-email/${encodeURIComponent(email)}`
-        );
-
-        if (userResponse.success && userResponse.user) {
-          userId = userResponse.user.id;
-          
-          // Get user's credentials
-          const credentialsResponse = await apiClient.get(
-            `/api/webauthn/users/${userId}/credentials`
-          );
-
-          if (credentialsResponse.success && credentialsResponse.credentials) {
-            allowCredentials = credentialsResponse.credentials.map((cred: any) => ({
-              id: cred.id,
-              type: "public-key" as const,
-              transports: cred.transports ? JSON.parse(cred.transports) : [],
-            }));
-          }
-        }
-      } catch (error) {
-        console.warn('User or credentials lookup failed:', error);
-        // Continue with empty allowCredentials for discoverable credentials
-      }
+    if (!userResponse.success || !userResponse.user) {
+      event.json(404, {
+        success: false,
+        error: "User not found",
+      });
+      return;
     }
+
+    const user = userResponse.user;
+
+    // Get user's credentials
+    const credentialsResponse = await apiClient.get(
+      `/api/webauthn/users/${user.id}/credentials`,
+    );
+
+    if (
+      !credentialsResponse.success ||
+      !credentialsResponse.credentials ||
+      credentialsResponse.credentials.length === 0
+    ) {
+      event.json(404, {
+        success: false,
+        error: "No passkeys found for user",
+      });
+      return;
+    }
+
+    // Convert credentials to allow list
+    const allowCredentials = credentialsResponse.credentials.map(
+      (cred: any) => ({
+        id: cred.id,
+        type: "public-key" as const,
+        transports: cred.transports ? JSON.parse(cred.transports) : [],
+      }),
+    );
 
     // Generate authentication options
     const options: GenerateAuthenticationOptionsOpts = {
       timeout: 60000,
-      allowCredentials, // Empty for discoverable credentials, specific for email-based
+      allowCredentials,
       userVerification: "preferred",
       rpID: RP_ID,
     };
@@ -59,28 +76,23 @@ export const onPost: RequestHandler = async (event) => {
 
     // Store challenge for verification
     const challengeId = crypto.randomUUID();
-    try {
-      await apiClient.post("/api/webauthn/challenges", {
-        id: challengeId,
-        challenge: authenticationOptions.challenge,
-        user_id: userId || null, // null for discoverable credentials
-        challenge_type: "authentication",
-        expires_at: Date.now() + 5 * 60 * 1000, // 5 minutes from now
-      });
-    } catch (error) {
-      console.error("Failed to store challenge:", error);
-      event.json(500, {
-        success: false,
-        error: "Failed to store authentication challenge",
-      });
-      return;
-    }
+    await apiClient.post("/api/webauthn/challenges", {
+      id: challengeId,
+      challenge: authenticationOptions.challenge,
+      user_id: user.id,
+      challenge_type: "authentication",
+      expires_at: Date.now() + 5 * 60 * 1000, // 5 minutes from now
+    });
 
-    // Return authentication options
+    // Return authentication options in format expected by iOS
     event.json(200, {
       success: true,
       options: {
-        ...authenticationOptions,
+        challenge: authenticationOptions.challenge,
+        timeout: authenticationOptions.timeout,
+        rpId: authenticationOptions.rpId,
+        allowCredentials: authenticationOptions.allowCredentials,
+        userVerification: authenticationOptions.userVerification,
         challengeId: challengeId,
       },
     });
@@ -90,5 +102,6 @@ export const onPost: RequestHandler = async (event) => {
       success: false,
       error: "Failed to begin authentication",
     });
+    return;
   }
 };

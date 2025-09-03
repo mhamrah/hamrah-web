@@ -1,4 +1,10 @@
-import { component$, useSignal, $, useComputed$, useVisibleTask$, type QRL } from "@builder.io/qwik";
+import {
+  component$,
+  useSignal,
+  $,
+  useComputed$,
+  type QRL,
+} from "@builder.io/qwik";
 import { webauthnClient } from "~/lib/auth/webauthn";
 
 interface PasskeySignupProps {
@@ -7,7 +13,6 @@ interface PasskeySignupProps {
   onCancel?: QRL<() => void>;
   onRequiresOAuth?: QRL<(email: string) => void>;
   oauthVerified?: boolean;
-  initialEmail?: string;
 }
 
 export const PasskeySignup = component$<PasskeySignupProps>((props) => {
@@ -15,14 +20,6 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
   const name = useSignal("");
   const isLoading = useSignal(false);
   const error = useSignal<string>("");
-
-  // Initialize email from props if provided
-  // eslint-disable-next-line qwik/no-use-visible-task
-  useVisibleTask$(() => {
-    if (props.initialEmail) {
-      email.value = props.initialEmail;
-    }
-  });
 
   const canSignUp = useComputed$(() => {
     return (
@@ -39,29 +36,32 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
     error.value = "";
 
     try {
-      const result = await webauthnClient.register(email.value.trim(), name.value.trim());
+      const result = await webauthnClient.registerPasskey({
+        email: email.value.trim(),
+        name: name.value.trim(),
+      });
 
       if (result.success) {
         // After successful registration, we need to authenticate to get a session
-        const authResult = await webauthnClient.authenticate(email.value.trim());
+        const authResult = await webauthnClient.authenticateWithPasskey({
+          email: email.value.trim(),
+        });
 
         if (authResult.success && authResult.user) {
           await props.onSuccess?.(authResult.user);
         } else {
-          error.value = "Registration succeeded but sign-in failed. Please try signing in.";
+          error.value =
+            "Registration succeeded but sign-in failed. Please try signing in.";
           await props.onError?.(error.value);
         }
-      } else if (result.requiresOAuth) {
-        // User exists and requires OAuth verification
-        await props.onRequiresOAuth?.(email.value.trim());
-        return;
       } else {
         const errorMsg = result.error || "Registration failed";
         error.value = errorMsg;
         await props.onError?.(errorMsg);
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Registration failed";
+      const errorMsg =
+        err instanceof Error ? err.message : "Registration failed";
       error.value = errorMsg;
       await props.onError?.(errorMsg);
     } finally {
@@ -81,7 +81,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
             class="h-8 w-8 text-purple-600"
             fill="none"
             viewBox="0 0 24 24"
-            stroke-width="1.5"
+            stroke-width={1.5}
             stroke="currentColor"
           >
             <path
@@ -122,7 +122,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
             }}
             placeholder="Enter your full name"
             disabled={isLoading.value}
-            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
 
@@ -142,7 +142,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
             }}
             placeholder="Enter your email"
             disabled={isLoading.value}
-            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:outline-none focus:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       </div>
@@ -165,7 +165,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
                 class="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                stroke-width={1.5}
                 stroke="currentColor"
               >
                 <path

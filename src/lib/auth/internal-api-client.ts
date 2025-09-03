@@ -126,33 +126,30 @@ export class InternalApiClient {
     });
   }
 
-  // Generic fetch methods for WebAuthn endpoints
+  // Generic REST methods for internal API calls
   async get<T = any>(path: string): Promise<T> {
-    return this.fetchInternal<T>(path, { method: 'GET' });
-  }
-
-  async post<T = any>(path: string, body: any): Promise<T> {
     return this.fetchInternal<T>(path, {
-      method: 'POST',
-      body: JSON.stringify(body),
+      method: 'GET',
     });
   }
 
-  async put<T = any>(path: string, body: any): Promise<T> {
+  async post<T = any>(path: string, data?: any): Promise<T> {
     return this.fetchInternal<T>(path, {
-      method: 'PUT',
-      body: JSON.stringify(body),
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async patch<T = any>(path: string, data?: any): Promise<T> {
+    return this.fetchInternal<T>(path, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
     });
   }
 
   async delete<T = any>(path: string): Promise<T> {
-    return this.fetchInternal<T>(path, { method: 'DELETE' });
-  }
-
-  async patch<T = any>(path: string, body: any): Promise<T> {
     return this.fetchInternal<T>(path, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
+      method: 'DELETE',
     });
   }
 }

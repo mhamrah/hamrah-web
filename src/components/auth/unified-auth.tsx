@@ -1,8 +1,7 @@
 import { component$, useSignal, $, type QRL } from "@builder.io/qwik";
 import { PasskeyLogin } from "./passkey-login";
 import { PasskeySignup } from "./passkey-signup";
-import { ConditionalPasskeyInput } from "./conditional-passkey-input";
-import { webauthnClient } from "~/lib/auth/webauthn";
+import { WebAuthnClient } from "~/lib/auth/webauthn";
 
 interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
@@ -19,6 +18,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   const showPasskeyLogin = useSignal(false);
   const showPasskeySignup = useSignal(false);
   const passkeyEmail = useSignal("");
+  const emailInput = useSignal("");
   const showEmailInput = useSignal(false);
 
   const redirectUrl = props.redirectUrl;
@@ -44,15 +44,16 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   });
 
   const handlePasskeyStart = $(async () => {
-    const supportsWebAuthn = await webauthnClient.isWebAuthnSupported();
-    if (!supportsWebAuthn) {
-      error.value = "Your browser doesn't support passkeys. Please use Google or Apple sign-in.";
+    if (!WebAuthnClient.isSupported()) {
+      error.value = "Passkeys are not supported in this browser";
       return;
     }
+
     showEmailInput.value = true;
   });
 
-  const handleEmailSubmit = $(async (email: string) => {
+  const handleEmailSubmit = $(async () => {
+    const email = emailInput.value.trim();
     if (!email || !email.includes("@")) {
       error.value = "Please enter a valid email address";
       return;
@@ -60,35 +61,30 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
 
     isLoading.value = true;
     error.value = "";
-    
+
     try {
-      // Check if user has existing passkeys via authentication attempt
-      const hasPasskeys = await webauthnClient.hasPasskeysForUser(email);
-      
+      const webauthnClient = await import("~/lib/auth/webauthn").then(
+        (m) => m.webauthnClient,
+      );
+      const hasPasskeys = await webauthnClient.hasPasskeys(email);
+
       passkeyEmail.value = email;
       showEmailInput.value = false;
-      
+
       if (hasPasskeys) {
         showPasskeyLogin.value = true;
       } else {
         showPasskeySignup.value = true;
       }
     } catch {
-      // If check fails, default to signup
-      passkeyEmail.value = email;
-      showEmailInput.value = false;
-      showPasskeySignup.value = true;
+      error.value = "Failed to check passkey status. Please try again.";
     } finally {
       isLoading.value = false;
     }
   });
 
-  const handlePasskeySuccess = $(async (user: any, sessionToken?: string) => {
+  const handlePasskeySuccess = $(async (user: any) => {
     success.value = "Successfully signed in with passkey!";
-    if (sessionToken) {
-      // Set session cookie if provided
-      document.cookie = `session=${sessionToken}; path=/; secure; samesite=strict`;
-    }
     await props.onSuccess?.(user);
   });
 
@@ -102,22 +98,23 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
     showPasskeySignup.value = false;
     showEmailInput.value = false;
     passkeyEmail.value = "";
+    emailInput.value = "";
   });
 
   const handleRequiresOAuth = $(async (email: string) => {
     // User exists and requires OAuth - redirect to OAuth with return flow
     error.value = `This email is associated with an existing account. Redirecting to sign in...`;
-    
+
     // Store the email for passkey creation after OAuth
-    sessionStorage.setItem('pendingPasskeyEmail', email);
-    sessionStorage.setItem('returnToPasskeyCreation', 'true');
-    
+    sessionStorage.setItem("pendingPasskeyEmail", email);
+    sessionStorage.setItem("returnToPasskeyCreation", "true");
+
     // Redirect to OAuth flow
     setTimeout(() => {
       if (redirectUrl) {
         window.location.href = `/auth/google?redirect=${encodeURIComponent(redirectUrl)}&passkey=pending`;
       } else {
-        window.location.href = '/auth/google?passkey=pending';
+        window.location.href = "/auth/google?passkey=pending";
       }
     }, 1500);
   });
@@ -137,7 +134,6 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   if (showPasskeySignup.value) {
     return (
       <PasskeySignup
-        initialEmail={passkeyEmail.value}
         onSuccess={handlePasskeySuccess}
         onError={handlePasskeyError}
         onCancel={handlePasskeyCancel}
@@ -197,24 +193,47 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       )}
 
       <div class="space-y-4">
-        {/* Passkey Option - Primary with Conditional UI */}
+        {/* Passkey Option - Primary */}
         <div class="space-y-3">
           {showEmailInput.value ? (
             <div class="space-y-3">
-              <ConditionalPasskeyInput
-                placeholder="Enter your email or use your passkey"
-                onPasskeyAuth={handlePasskeySuccess}
-                onError={handlePasskeyError}
-                onEmailSubmit={handleEmailSubmit}
-              />
-              <button
-                type="button"
-                onClick$={handlePasskeyCancel}
-                disabled={isLoading.value}
-                class="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Use different method
-              </button>
+              <div>
+                <label
+                  for="passkey-email"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="passkey-email"
+                  type="email"
+                  value={emailInput.value}
+                  onInput$={(e) => {
+                    emailInput.value = (e.target as HTMLInputElement).value;
+                  }}
+                  placeholder="Enter your email"
+                  disabled={isLoading.value}
+                  class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+              <div class="flex space-x-2">
+                <button
+                  type="button"
+                  onClick$={handleEmailSubmit}
+                  disabled={isLoading.value || !emailInput.value.includes("@")}
+                  class="flex-1 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isLoading.value ? "Checking..." : "Continue"}
+                </button>
+                <button
+                  type="button"
+                  onClick$={handlePasskeyCancel}
+                  disabled={isLoading.value}
+                  class="rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : (
             <button
@@ -227,7 +246,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
                 class="mr-2 h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                stroke-width={1.5}
                 stroke="currentColor"
               >
                 <path

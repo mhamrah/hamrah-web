@@ -1,361 +1,266 @@
-// WebAuthn client implementation with conditional UI and client-side detection
+// WebAuthn client implementation using @simplewebauthn/browser
+// Handles passkey registration and authentication flows
+
 import {
   startRegistration,
   startAuthentication,
-  browserSupportsWebAuthn,
-  browserSupportsWebAuthnAutofill,
-  platformAuthenticatorIsAvailable,
 } from '@simplewebauthn/browser';
 import { createApiClient } from './api-client';
 
+// Types for our WebAuthn implementation
+export interface PasskeyRegistrationRequest {
+  email: string;
+  name: string;
+}
+
+export interface PasskeyAuthenticationRequest {
+  email: string;
+}
+
 export interface WebAuthnCredential {
   id: string;
-  name: string;
-  createdAt: string;
-  lastUsed?: string;
+  user_id: string;
+  public_key: string;
+  counter: number;
+  transports?: string[];
+  name?: string;
+  created_at: number;
 }
 
 export interface PasskeyRegistrationResult {
   success: boolean;
-  user?: any;
-  message?: string;
   error?: string;
-  requiresOAuth?: boolean;
 }
 
 export interface PasskeyAuthenticationResult {
   success: boolean;
   user?: any;
-  sessionToken?: string;
-  message?: string;
+  session_token?: string;
   error?: string;
 }
 
+// WebAuthn Client
 export class WebAuthnClient {
-  private apiClient: ReturnType<typeof createApiClient>;
+  private apiClient = createApiClient();
 
-  constructor() {
-    this.apiClient = createApiClient();
+  // Check if WebAuthn is supported in the browser
+  static isSupported(): boolean {
+    return !!(
+      window?.PublicKeyCredential &&
+      window?.navigator?.credentials &&
+      typeof window.navigator.credentials.create === 'function' &&
+      typeof window.navigator.credentials.get === 'function'
+    );
   }
 
-  // Browser capability detection
-  async isWebAuthnSupported(): Promise<boolean> {
-    return browserSupportsWebAuthn();
-  }
-
-  async isConditionalUISupported(): Promise<boolean> {
+  // Check if a user has passkeys for the given email
+  async hasPasskeys(email: string): Promise<boolean> {
     try {
-      return await browserSupportsWebAuthnAutofill();
-    } catch (error) {
-      console.warn('Error checking conditional UI support:', error);
-      return false;
-    }
-  }
-
-  async isPlatformAuthenticatorAvailable(): Promise<boolean> {
-    try {
-      return await platformAuthenticatorIsAvailable();
-    } catch (error) {
-      console.warn('Error checking platform authenticator:', error);
-      return false;
-    }
-  }
-
-  // Client-side passkey detection
-  async hasPasskeysForDomain(): Promise<boolean> {
-    if (!await this.isWebAuthnSupported()) {
-      return false;
-    }
-
-    try {
-      // Attempt to get credentials without specific allowCredentials
-      // This will only work if there are passkeys for this domain
-      const credential = await navigator.credentials.get({
-        publicKey: {
-          challenge: crypto.getRandomValues(new Uint8Array(32)),
-          allowCredentials: [], // Empty array means any credential for this domain
-          userVerification: 'preferred',
-          timeout: 5000,
-        },
-        mediation: 'conditional', // Use conditional UI
-      });
-
-      return !!credential;
-    } catch (error) {
-      // No passkeys available or user cancelled
-      return false;
-    }
-  }
-
-  // Check if user has passkeys for a specific email
-  async hasPasskeysForUser(email: string): Promise<boolean> {
-    try {
-      // Attempt authentication to see if user has passkeys
-      const beginResponse = await this.apiClient.post('/api/webauthn/authenticate/begin', {
-        email,
-      });
+      const userResponse = await this.apiClient.get(`/api/users/by-email/${encodeURIComponent(email)}`);
       
-      if (!beginResponse.success) {
+      if (!userResponse.success || !userResponse.user) {
         return false;
       }
-      
-      // If we get options back and they have allowCredentials, user has passkeys
-      return beginResponse.options?.allowCredentials?.length > 0;
-    } catch (error) {
-      console.warn('Error checking user passkeys:', error);
+
+      const credentialsResponse = await this.apiClient.get(`/api/webauthn/users/${userResponse.user.id}/credentials`);
+      return credentialsResponse.success && credentialsResponse.credentials?.length > 0;
+    } catch {
       return false;
     }
   }
 
-  // Alias methods for component compatibility
-  async register(email: string, name: string): Promise<PasskeyRegistrationResult> {
-    return this.registerPasskey(email, name);
-  }
-
-  async authenticate(email?: string): Promise<PasskeyAuthenticationResult> {
-    return this.authenticateWithPasskey(email);
-  }
-
-  // Passkey registration for new users
-  async registerPasskey(email: string, name: string): Promise<PasskeyRegistrationResult> {
+  // Check if a user exists (public method for auth flows)
+  async userExists(email: string): Promise<boolean> {
     try {
-      if (!await this.isWebAuthnSupported()) {
-        return {
-          success: false,
-          error: 'Passkeys are not supported in this browser',
-        };
-      }
+      const userResponse = await this.apiClient.get(`/api/users/by-email/${encodeURIComponent(email)}`);
+      return userResponse.success && !!userResponse.user;
+    } catch {
+      return false;
+    }
+  }
 
-      // Step 1: Get registration options from server
-      const optionsResponse = await this.apiClient.post('/api/webauthn/register/begin', {
-        email,
-        name,
+  // Register a new passkey (can be first passkey for new user or additional passkey)
+  async registerPasskey(request: PasskeyRegistrationRequest): Promise<PasskeyRegistrationResult> {
+    if (!WebAuthnClient.isSupported()) {
+      return {
+        success: false,
+        error: 'WebAuthn is not supported in this browser',
+      };
+    }
+
+    try {
+      // Step 1: Begin registration - get challenge and options
+      const beginResponse = await this.apiClient.post('/api/webauthn/register/begin', {
+        email: request.email,
+        name: request.name,
       });
 
-      if (!optionsResponse.success) {
+      if (!beginResponse.success || !beginResponse.options) {
         return {
           success: false,
-          error: optionsResponse.error || 'Failed to begin registration',
+          error: beginResponse.error || 'Failed to begin registration',
         };
       }
 
       // Step 2: Start registration with the browser
-      const registrationResponse = await startRegistration({
-        optionsJSON: optionsResponse.options,
-      });
+      const registrationResponse = await startRegistration(beginResponse.options);
 
-      // Step 3: Send registration response to server for verification
-      const verificationResponse = await this.apiClient.post('/api/webauthn/register/complete', {
+      // Step 3: Complete registration - verify the response
+      const completeResponse = await this.apiClient.post('/api/webauthn/register/complete', {
+        challengeId: beginResponse.options.challengeId,
         response: registrationResponse,
-        challengeId: optionsResponse.options.challengeId,
-        email,
-        name,
+        email: request.email,
+        name: request.name,
       });
 
-      if (verificationResponse.success) {
-        return {
-          success: true,
-          user: verificationResponse.user,
-          message: 'Passkey registered successfully',
-        };
-      } else {
+      if (!completeResponse.success) {
         return {
           success: false,
-          error: verificationResponse.error || 'Failed to complete registration',
+          error: completeResponse.error || 'Failed to complete registration',
         };
       }
+
+      return { success: true };
+
     } catch (error: any) {
-      console.error('Passkey registration error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to register passkey',
+        error: error.message || 'Registration failed',
       };
     }
   }
 
-  // Passkey authentication with conditional UI
-  async authenticateWithPasskey(email?: string, useConditionalUI = false): Promise<PasskeyAuthenticationResult> {
-    try {
-      if (!await this.isWebAuthnSupported()) {
-        return {
-          success: false,
-          error: 'Passkeys are not supported in this browser',
-        };
-      }
+  // Authenticate with passkey
+  async authenticateWithPasskey(request: PasskeyAuthenticationRequest): Promise<PasskeyAuthenticationResult> {
+    if (!WebAuthnClient.isSupported()) {
+      return {
+        success: false,
+        error: 'WebAuthn is not supported in this browser',
+      };
+    }
 
-      // Step 1: Get authentication options from server
-      const optionsResponse = await this.apiClient.post('/api/webauthn/authenticate/begin', {
-        email,
+    try {
+      // Step 1: Begin authentication - get challenge and options
+      const beginResponse = await this.apiClient.post('/api/webauthn/authenticate/begin', {
+        email: request.email,
       });
 
-      if (!optionsResponse.success) {
+      if (!beginResponse.success || !beginResponse.options) {
         return {
           success: false,
-          error: optionsResponse.error || 'Failed to begin authentication',
+          error: beginResponse.error || 'Failed to begin authentication',
         };
       }
 
       // Step 2: Start authentication with the browser
-      const authenticationResponse = await startAuthentication({
-        optionsJSON: optionsResponse.options,
-        useBrowserAutofill: useConditionalUI,
+      const authResponse = await startAuthentication(beginResponse.options);
+
+      // Step 3: Complete authentication - verify the response
+      const completeResponse = await this.apiClient.post('/api/webauthn/authenticate/complete', {
+        challengeId: beginResponse.options.challengeId,
+        response: authResponse,
+        email: request.email,
       });
 
-      // Step 3: Send authentication response to server for verification
-      const verificationResponse = await this.apiClient.post('/api/webauthn/authenticate/complete', {
-        response: authenticationResponse,
-        challengeId: optionsResponse.options.challengeId,
-        email,
-      });
-
-      if (verificationResponse.success) {
-        return {
-          success: true,
-          user: verificationResponse.user,
-          sessionToken: verificationResponse.sessionToken,
-          message: 'Authentication successful',
-        };
-      } else {
+      if (!completeResponse.success) {
         return {
           success: false,
-          error: verificationResponse.error || 'Failed to complete authentication',
+          error: completeResponse.error || 'Authentication failed',
         };
       }
+
+      return {
+        success: true,
+        user: completeResponse.user,
+        session_token: completeResponse.session_token,
+      };
+
     } catch (error: any) {
-      console.error('Passkey authentication error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to authenticate with passkey',
+        error: error.message || 'Authentication failed',
       };
     }
   }
 
-  // Add passkey to existing account (for OAuth users)
-  async addPasskeyToAccount(): Promise<PasskeyRegistrationResult> {
+  // Add an additional passkey to existing user (authenticated flow)
+  async addPasskey(): Promise<PasskeyRegistrationResult> {
+    if (!WebAuthnClient.isSupported()) {
+      return {
+        success: false,
+        error: 'WebAuthn is not supported in this browser',
+      };
+    }
+
     try {
-      if (!await this.isWebAuthnSupported()) {
+      // Step 1: Begin add passkey - get challenge and options
+      const beginResponse = await this.apiClient.post('/api/webauthn/add-passkey/begin', {});
+
+      if (!beginResponse.success || !beginResponse.options) {
         return {
           success: false,
-          error: 'Passkeys are not supported in this browser',
-        };
-      }
-
-      // Step 1: Get registration options for existing user
-      const optionsResponse = await this.apiClient.post('/api/webauthn/add-passkey/begin', {});
-
-      if (!optionsResponse.success) {
-        return {
-          success: false,
-          error: optionsResponse.error || 'Failed to begin passkey addition',
+          error: beginResponse.error || 'Failed to begin passkey addition',
         };
       }
 
       // Step 2: Start registration with the browser
-      const registrationResponse = await startRegistration({
-        optionsJSON: optionsResponse.options,
-      });
+      const registrationResponse = await startRegistration(beginResponse.options);
 
-      // Step 3: Send registration response to server for verification
-      const verificationResponse = await this.apiClient.post('/api/webauthn/add-passkey/complete', {
+      // Step 3: Complete add passkey - verify the response
+      const completeResponse = await this.apiClient.post('/api/webauthn/add-passkey/complete', {
+        challengeId: beginResponse.options.challengeId,
         response: registrationResponse,
-        challengeId: optionsResponse.options.challengeId,
       });
 
-      if (verificationResponse.success) {
-        return {
-          success: true,
-          message: 'Passkey added to your account successfully',
-        };
-      } else {
+      if (!completeResponse.success) {
         return {
           success: false,
-          error: verificationResponse.error || 'Failed to add passkey',
+          error: completeResponse.error || 'Failed to add passkey',
         };
       }
+
+      return { success: true };
+
     } catch (error: any) {
-      console.error('Add passkey error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to add passkey to account',
+        error: error.message || 'Failed to add passkey',
       };
     }
   }
 
-  // Conditional UI setup for forms
-  async setupConditionalUI(inputElement: HTMLInputElement): Promise<void> {
-    if (!await this.isConditionalUISupported()) {
-      return;
-    }
-
-    try {
-      // Set up the input for conditional UI
-      inputElement.setAttribute('autocomplete', 'username webauthn');
-      
-      // Start conditional authentication
-      this.authenticateWithPasskey(undefined, true).then((result) => {
-        if (result.success) {
-          // Dispatch custom event for successful authentication
-          const event = new CustomEvent('passkeyAuthenticated', {
-            detail: { user: result.user, sessionToken: result.sessionToken },
-          });
-          inputElement.dispatchEvent(event);
-        }
-      }).catch((error) => {
-        console.warn('Conditional UI authentication failed:', error);
-      });
-    } catch (error) {
-      console.warn('Failed to setup conditional UI:', error);
-    }
-  }
-
-  // Passkey management methods
+  // Get user's passkeys
   async getUserPasskeys(userId: string): Promise<WebAuthnCredential[]> {
     try {
       const response = await this.apiClient.get(`/api/webauthn/users/${userId}/credentials`);
-      return response.credentials || [];
-    } catch (error) {
-      console.error('Failed to get user passkeys:', error);
+      return response.success ? response.credentials : [];
+    } catch {
       return [];
     }
   }
 
+  // Delete a passkey
   async deletePasskey(credentialId: string): Promise<boolean> {
     try {
-      await this.apiClient.delete(`/api/webauthn/credentials/${credentialId}`);
-      return true;
-    } catch (error) {
-      console.error('Failed to delete passkey:', error);
+      const response = await this.apiClient.delete(`/api/webauthn/credentials/${credentialId}`);
+      return response.success;
+    } catch {
       return false;
     }
   }
 
+  // Rename a passkey
   async renamePasskey(credentialId: string, name: string): Promise<boolean> {
     try {
-      await this.apiClient.patch(`/api/webauthn/credentials/${credentialId}`, { name });
-      return true;
-    } catch (error) {
-      console.error('Failed to rename passkey:', error);
+      const response = await this.apiClient.patch(`/api/webauthn/credentials/${credentialId}/name`, {
+        name,
+      });
+      return response.success;
+    } catch {
       return false;
     }
-  }
-
-  // Alias methods for component compatibility
-  async getUserCredentials(userId: string): Promise<WebAuthnCredential[]> {
-    return this.getUserPasskeys(userId);
-  }
-
-  async deleteCredential(credentialId: string): Promise<boolean> {
-    return this.deletePasskey(credentialId);
-  }
-
-  async renameCredential(credentialId: string, name: string): Promise<boolean> {
-    return this.renamePasskey(credentialId, name);
-  }
-
-  // Alias for addPasskeyToAccount
-  async addPasskey(): Promise<PasskeyRegistrationResult> {
-    return this.addPasskeyToAccount();
   }
 }
 
+// Export a default instance
 export const webauthnClient = new WebAuthnClient();

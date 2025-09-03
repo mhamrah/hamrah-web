@@ -108,6 +108,33 @@ export class HamrahApiClient {
     });
   }
 
+  // Generic REST methods for public API calls
+  async get<T = any>(path: string): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'GET',
+    });
+  }
+
+  async post<T = any>(path: string, data?: any): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async patch<T = any>(path: string, data?: any): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete<T = any>(path: string): Promise<T> {
+    return this.fetchApi<T>(path, {
+      method: 'DELETE',
+    });
+  }
+
   // Public endpoint: Revoke specific token
   async revokeToken(tokenId: string): Promise<{ success: boolean; message: string }> {
     return this.fetchApi<{ success: boolean; message: string }>(
