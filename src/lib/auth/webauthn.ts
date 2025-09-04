@@ -194,7 +194,14 @@ export class WebAuthnClient {
 
     try {
       // Step 1: Begin add passkey - get challenge and options
-      const beginResponse = await this.apiClient.post('/api/webauthn/add-passkey/begin', {});
+      const beginResponse: any = await fetch('/api/webauthn/add-passkey/begin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      }).then(res => res.json());
 
       if (!beginResponse.success || !beginResponse.options) {
         return {
@@ -207,10 +214,17 @@ export class WebAuthnClient {
       const registrationResponse = await startRegistration(beginResponse.options);
 
       // Step 3: Complete add passkey - verify the response
-      const completeResponse = await this.apiClient.post('/api/webauthn/add-passkey/complete', {
-        challengeId: beginResponse.options.challengeId,
-        response: registrationResponse,
-      });
+      const completeResponse: any = await fetch('/api/webauthn/add-passkey/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          challengeId: beginResponse.options.challengeId,
+          response: registrationResponse,
+        }),
+      }).then(res => res.json());
 
       if (!completeResponse.success) {
         return {
