@@ -22,6 +22,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Email and name are required",
       });
+      return;
     }
 
     const apiClient = createInternalApiClient(event);
@@ -48,6 +49,7 @@ export const onPost: RequestHandler = async (event) => {
             error:
               "This email is associated with an existing account. Please sign in with Apple or Google first before adding a passkey.",
           });
+          return;
         }
 
         // Existing user without OAuth - get their credentials to exclude from registration

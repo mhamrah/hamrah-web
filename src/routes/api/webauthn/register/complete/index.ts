@@ -24,6 +24,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Missing required fields",
       });
+      return;
     }
 
     const apiClient = createInternalApiClient(event);
@@ -38,6 +39,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Invalid or expired challenge",
       });
+      return;
     }
 
     const challenge = challengeResponse.challenge;
@@ -48,6 +50,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Challenge expired",
       });
+      return;
     }
 
     // Verify registration response
@@ -66,6 +69,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Registration verification failed",
       });
+      return;
     }
 
     if (!verificationResult.registrationInfo) {

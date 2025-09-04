@@ -60,6 +60,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Invalid or expired challenge",
       });
+      return;
     }
 
     const challenge = challengeResponse.challenge;
@@ -70,6 +71,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Challenge expired",
       });
+      return;
     }
 
     // Verify challenge belongs to authenticated user
@@ -78,6 +80,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Challenge does not belong to authenticated user",
       });
+      return;
     }
 
     // Verify registration response
@@ -96,6 +99,7 @@ export const onPost: RequestHandler = async (event) => {
         success: false,
         error: "Registration verification failed",
       });
+      return;
     }
 
     if (!verificationResult.registrationInfo) {
