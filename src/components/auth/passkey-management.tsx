@@ -42,18 +42,8 @@ export const PasskeyManagement = component$<PasskeyManagementProps>((props) => {
     success.value = "";
 
     try {
-      // For adding additional passkeys, we need user email
-      // This is a simplified approach - in production you'd get this from user context
-      const email = prompt("Enter your email address to add a passkey:");
-      if (!email) {
-        isAdding.value = false;
-        return;
-      }
-
-      const result = await webauthnClient.registerPasskey({
-        email: email.trim(),
-        name: "Additional Passkey", // Could be made configurable
-      });
+      // Use the authenticated user's addPasskey method (no email required)
+      const result = await webauthnClient.addPasskey();
 
       if (result.success) {
         success.value = "Passkey added successfully!";
