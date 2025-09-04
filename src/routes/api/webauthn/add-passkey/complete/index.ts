@@ -11,9 +11,31 @@ const EXPECTED_ORIGIN = "https://hamrah.app";
 
 export const onPost: RequestHandler = async (event) => {
   try {
-    // This endpoint requires authentication
-    // TODO: Implement proper session validation
-    const user = { id: "test-user-id", email: "test@example.com" };
+    // Get authenticated user from session
+    const sessionToken = event.cookie.get("session")?.value;
+    if (!sessionToken) {
+      event.json(401, {
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    // Validate session and get user
+    const apiClient = createInternalApiClient(event);
+    const sessionResult = await apiClient.validateSession({
+      session_token: sessionToken
+    });
+    
+    if (!sessionResult.success || !sessionResult.user) {
+      event.json(401, {
+        success: false,
+        error: "Invalid session",
+      });
+      return;
+    }
+    
+    const user = sessionResult.user;
     const body = (await event.request.json()) as {
       response: any;
       challengeId: string;
@@ -27,8 +49,6 @@ export const onPost: RequestHandler = async (event) => {
       });
       return;
     }
-
-    const apiClient = createInternalApiClient(event);
 
     // Get and verify challenge
     const challengeResponse = await apiClient.get(

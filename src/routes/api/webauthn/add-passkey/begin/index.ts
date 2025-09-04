@@ -11,15 +11,31 @@ const RP_ID = "hamrah.app";
 
 export const onPost: RequestHandler = async (event) => {
   try {
-    // This endpoint requires authentication
-    // TODO: Implement proper session validation
-    // For now, using mock user for testing
-    const user = {
-      id: "test-user-id",
-      email: "test@example.com",
-      name: "Test User",
-    };
+    // Get authenticated user from session
+    const sessionToken = event.cookie.get("session")?.value;
+    if (!sessionToken) {
+      event.json(401, {
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    // Validate session and get user
     const apiClient = createInternalApiClient(event);
+    const sessionResult = await apiClient.validateSession({
+      session_token: sessionToken
+    });
+    
+    if (!sessionResult.success || !sessionResult.user) {
+      event.json(401, {
+        success: false,
+        error: "Invalid session",
+      });
+      return;
+    }
+    
+    const user = sessionResult.user;
 
     // Get user's existing credentials to exclude from registration
     let excludeCredentials: any[] = [];

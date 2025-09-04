@@ -1,6 +1,7 @@
 import { component$ } from "@builder.io/qwik";
 import type { DocumentHead } from "@builder.io/qwik-city";
 import { useUserLoader } from "../layout";
+import { PasskeyManagement } from "~/components/auth/passkey-management";
 
 export default component$(() => {
   const user = useUserLoader();
@@ -104,27 +105,9 @@ export default component$(() => {
               </div>
             </div>
 
-            {/* Additional Settings Link */}
+            {/* Passkey Management */}
             <div class="border-t pt-6">
-              <a
-                href="/settings/security"
-                class="inline-flex items-center rounded-md bg-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
-              >
-                Advanced Security Settings
-                <svg
-                  class="ml-2 h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </a>
+              <PasskeyManagement userId={user.value.id} />
             </div>
           </div>
         </div>
