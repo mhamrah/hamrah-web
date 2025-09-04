@@ -4,6 +4,7 @@ import {
   type VerifyRegistrationResponseOpts,
 } from "@simplewebauthn/server";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // WebAuthn RP configuration
 const RP_ID = "hamrah.app";
@@ -22,8 +23,8 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     // Validate session and get user
-    const apiClient = createInternalApiClient(event);
-    const sessionResult = await apiClient.validateSession({
+    const internalApiClient = createInternalApiClient(event);
+    const sessionResult = await internalApiClient.validateSession({
       session_token: sessionToken
     });
     
@@ -36,6 +37,9 @@ export const onPost: RequestHandler = async (event) => {
     }
     
     const user = sessionResult.user;
+    
+    // Create API client for WebAuthn operations
+    const apiClient = createApiClient(event);
     const body = (await event.request.json()) as {
       response: any;
       challengeId: string;
@@ -98,14 +102,6 @@ export const onPost: RequestHandler = async (event) => {
       event.json(400, {
         success: false,
         error: "Registration verification failed",
-      });
-      return;
-    }
-
-    if (!verificationResult.registrationInfo) {
-      event.json(400, {
-        success: false,
-        error: "Registration verification failed - no registration info",
       });
       return;
     }

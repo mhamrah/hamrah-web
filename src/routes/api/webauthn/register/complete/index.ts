@@ -4,6 +4,7 @@ import {
   type VerifyRegistrationResponseOpts,
 } from "@simplewebauthn/server";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // WebAuthn RP configuration
 const RP_ID = "hamrah.app";
@@ -27,7 +28,8 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    const apiClient = createInternalApiClient(event);
+    const apiClient = createApiClient(event);
+    const internalApiClient = createInternalApiClient(event);
 
     // Get and verify challenge
     const challengeResponse = await apiClient.get(
@@ -72,14 +74,6 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    if (!verificationResult.registrationInfo) {
-      event.json(400, {
-        success: false,
-        error: "Registration verification failed - no registration info",
-      });
-      return;
-    }
-
     const { credential } = verificationResult.registrationInfo;
     const counter = verificationResult.registrationInfo.credentialBackedUp
       ? 1
@@ -96,7 +90,7 @@ export const onPost: RequestHandler = async (event) => {
 
       if (!userResponse.success || !userResponse.user) {
         // Create new user
-        await apiClient.post("/api/internal/users", {
+        await internalApiClient.post("/api/internal/users", {
           id: userId,
           email,
           name,

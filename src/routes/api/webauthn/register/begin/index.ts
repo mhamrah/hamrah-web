@@ -3,7 +3,7 @@ import {
   generateRegistrationOptions,
   type GenerateRegistrationOptionsOpts,
 } from "@simplewebauthn/server";
-import { createInternalApiClient } from "~/lib/auth/internal-api-client";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // WebAuthn RP configuration
 const RP_NAME = "Hamrah App";
@@ -25,7 +25,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    const apiClient = createInternalApiClient(event);
+    const apiClient = createApiClient(event);
 
     // Check if user exists and enforce OAuth security rule
     let userId: string;

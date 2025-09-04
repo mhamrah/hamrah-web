@@ -4,6 +4,7 @@ import {
   type GenerateRegistrationOptionsOpts,
 } from "@simplewebauthn/server";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // WebAuthn RP configuration
 const RP_NAME = "Hamrah App";
@@ -22,8 +23,8 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     // Validate session and get user
-    const apiClient = createInternalApiClient(event);
-    const sessionResult = await apiClient.validateSession({
+    const internalApiClient = createInternalApiClient(event);
+    const sessionResult = await internalApiClient.validateSession({
       session_token: sessionToken
     });
     
@@ -36,6 +37,9 @@ export const onPost: RequestHandler = async (event) => {
     }
     
     const user = sessionResult.user;
+
+    // Create API client for WebAuthn operations
+    const apiClient = createApiClient(event);
 
     // Get user's existing credentials to exclude from registration
     let excludeCredentials: any[] = [];

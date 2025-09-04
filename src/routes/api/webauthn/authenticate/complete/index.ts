@@ -3,7 +3,7 @@ import {
   verifyAuthenticationResponse,
   type VerifyAuthenticationResponseOpts,
 } from "@simplewebauthn/server";
-import { createInternalApiClient } from "~/lib/auth/internal-api-client";
+import { createApiClient } from "~/lib/auth/api-client";
 
 // WebAuthn RP configuration
 const RP_ID = "hamrah.app";
@@ -26,7 +26,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    const apiClient = createInternalApiClient(event);
+    const apiClient = createApiClient(event);
 
     // Get and verify challenge
     const challengeResponse = await apiClient.get(

@@ -56,7 +56,7 @@ export interface SessionValidationRequest {
  * Uses AUTH_API service binding for authenticated internal communication.
  */
 export class InternalApiClient {
-  private authApiService: Fetcher | null;
+  private authApiService: Fetcher;
   private event: RequestEventCommon;
 
   constructor(event: RequestEventCommon) {
@@ -65,8 +65,7 @@ export class InternalApiClient {
     this.authApiService = (event.platform.env as any).AUTH_API as Fetcher;
     
     if (!this.authApiService) {
-      console.warn('AUTH_API service binding not found. Falling back to direct HTTP requests. Available env keys:', Object.keys(event.platform.env || {}));
-      this.authApiService = null;
+      throw new Error('AUTH_API service binding not found. Ensure this is only called server-side and the service binding is configured.');
     }
   }
 
@@ -82,26 +81,10 @@ export class InternalApiClient {
       ...(options.headers as Record<string, string> | undefined),
     };
 
-    let response: Response;
-
-    if (this.authApiService) {
-      // Use service binding when available
-      response = await this.authApiService.fetch(`https://api.hamrah.app${path}`, {
-        ...options,
-        headers,
-      });
-    } else {
-      // Fallback to direct HTTP request
-      response = await fetch(`https://api.hamrah.app${path}`, {
-        ...options,
-        headers: {
-          ...headers,
-          // Add internal service headers for API authentication
-          'X-Internal-Service': 'hamrah-web',
-          'X-Internal-Key': (this.event.platform.env as any)?.INTERNAL_API_KEY || 'dev-key',
-        },
-      });
-    }
+    const response = await this.authApiService.fetch(`https://api.hamrah.app${path}`, {
+      ...options,
+      headers,
+    });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
