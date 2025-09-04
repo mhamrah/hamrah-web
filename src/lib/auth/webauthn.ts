@@ -89,11 +89,18 @@ export class WebAuthnClient {
     }
 
     try {
-      // Step 1: Begin registration - get challenge and options
-      const beginResponse = await this.apiClient.post('/api/webauthn/register/begin', {
-        email: request.email,
-        name: request.name,
-      });
+      // Step 1: Begin registration - get challenge and options  
+      const beginResponse: any = await fetch('/api/webauthn/register/begin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: request.email,
+          name: request.name,
+        }),
+      }).then(res => res.json());
 
       if (!beginResponse.success || !beginResponse.options) {
         return {
@@ -106,12 +113,19 @@ export class WebAuthnClient {
       const registrationResponse = await startRegistration(beginResponse.options);
 
       // Step 3: Complete registration - verify the response
-      const completeResponse = await this.apiClient.post('/api/webauthn/register/complete', {
-        challengeId: beginResponse.options.challengeId,
-        response: registrationResponse,
-        email: request.email,
-        name: request.name,
-      });
+      const completeResponse: any = await fetch('/api/webauthn/register/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          challengeId: beginResponse.options.challengeId,
+          response: registrationResponse,
+          email: request.email,
+          name: request.name,
+        }),
+      }).then(res => res.json());
 
       if (!completeResponse.success) {
         return {
@@ -141,9 +155,16 @@ export class WebAuthnClient {
 
     try {
       // Step 1: Begin authentication - get challenge and options
-      const beginResponse = await this.apiClient.post('/api/webauthn/authenticate/begin', {
-        email: request.email,
-      });
+      const beginResponse: any = await fetch('/api/webauthn/authenticate/begin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: request.email,
+        }),
+      }).then(res => res.json());
 
       if (!beginResponse.success || !beginResponse.options) {
         return {
@@ -156,11 +177,18 @@ export class WebAuthnClient {
       const authResponse = await startAuthentication(beginResponse.options);
 
       // Step 3: Complete authentication - verify the response
-      const completeResponse = await this.apiClient.post('/api/webauthn/authenticate/complete', {
-        challengeId: beginResponse.options.challengeId,
-        response: authResponse,
-        email: request.email,
-      });
+      const completeResponse: any = await fetch('/api/webauthn/authenticate/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          challengeId: beginResponse.options.challengeId,
+          response: authResponse,
+          email: request.email,
+        }),
+      }).then(res => res.json());
 
       if (!completeResponse.success) {
         return {
