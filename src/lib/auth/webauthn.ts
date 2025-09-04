@@ -110,7 +110,7 @@ export class WebAuthnClient {
       }
 
       // Step 2: Start registration with the browser
-      const registrationResponse = await startRegistration(beginResponse.options);
+      const registrationResponse = await startRegistration({ optionsJSON: beginResponse.options });
 
       // Step 3: Complete registration - verify the response
       const completeResponse: any = await fetch('/api/webauthn/register/complete', {
@@ -174,7 +174,7 @@ export class WebAuthnClient {
       }
 
       // Step 2: Start authentication with the browser
-      const authResponse = await startAuthentication(beginResponse.options);
+      const authResponse = await startAuthentication({ optionsJSON: beginResponse.options });
 
       // Step 3: Complete authentication - verify the response
       const completeResponse: any = await fetch('/api/webauthn/authenticate/complete', {
@@ -239,7 +239,7 @@ export class WebAuthnClient {
       }
 
       // Step 2: Start registration with the browser
-      const registrationResponse = await startRegistration(beginResponse.options);
+      const registrationResponse = await startRegistration({ optionsJSON: beginResponse.options });
 
       // Step 3: Complete add passkey - verify the response
       const completeResponse: any = await fetch('/api/webauthn/add-passkey/complete', {
