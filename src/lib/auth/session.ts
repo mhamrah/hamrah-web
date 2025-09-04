@@ -25,17 +25,29 @@ export async function createSession(event: RequestEventCommon, token: string, us
 }
 
 export async function validateSessionToken(event: RequestEventCommon, token: string): Promise<SessionValidationResult> {
-  // Session validation via public cookie-based endpoint
-  const apiClient = createApiClient(event);
-  const result = await apiClient.validateSession();
-  
-  // Convert ApiAuthResponse to SessionValidationResult
-  return {
-    success: result.success,
-    isValid: result.success,
-    user: result.user,
-    session: token ? { token, expiresAt: new Date() } : null,
-  };
+  try {
+    // Session validation via public cookie-based endpoint
+    const apiClient = createApiClient(event);
+    const result = await apiClient.validateSession();
+    
+    // Convert ApiAuthResponse to SessionValidationResult
+    return {
+      success: result.success,
+      isValid: result.success,
+      user: result.user,
+      session: token ? { token, expiresAt: new Date() } : null,
+    };
+  } catch (error) {
+    console.warn('Session validation failed:', error instanceof Error ? error.message : 'Unknown error');
+    // Return failed validation instead of throwing error
+    return {
+      success: false,
+      isValid: false,
+      user: null,
+      session: null,
+      error: 'Session validation failed',
+    };
+  }
 }
 
 export function setSessionTokenCookie(event: RequestEventCommon, token: string, expiresAt: Date): void {

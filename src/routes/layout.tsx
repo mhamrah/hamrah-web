@@ -2,6 +2,7 @@ import { component$, Slot } from "@builder.io/qwik";
 import { routeLoader$ } from "@builder.io/qwik-city";
 import type { RequestHandler } from "@builder.io/qwik-city";
 import { getCurrentUser } from "~/lib/auth/utils";
+import { deleteSessionTokenCookie } from "~/lib/auth/session";
 
 export const onRequest: RequestHandler = async (event) => {
   // Skip auth check for auth routes, OIDC routes, API routes, and public routes
@@ -14,9 +15,15 @@ export const onRequest: RequestHandler = async (event) => {
     return;
   }
 
-  const { user } = await getCurrentUser(event);
+  const { user, success } = await getCurrentUser(event);
 
-  if (!user) {
+  if (!user || !success) {
+    // Clear invalid session cookie if it exists
+    const sessionToken = event.cookie.get("session")?.value;
+    if (sessionToken) {
+      console.log('Clearing invalid session cookie');
+      deleteSessionTokenCookie(event);
+    }
     throw event.redirect(302, "/auth/login");
   }
 
