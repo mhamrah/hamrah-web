@@ -112,17 +112,41 @@ export const onPost: RequestHandler = async (event) => {
       : 0;
 
     // Store the credential
-    await apiClient.post("/api/webauthn/credentials", {
-      id: Buffer.from(credential.id).toString("base64url"),
-      user_id: user.id,
-      public_key: Buffer.from(credential.publicKey).toString("base64"),
-      counter,
-      transports: registrationResponse.response.transports || [],
-      credential_type: "public-key",
-      user_verified: true,
-      credential_backed_up: true,
-      name: "Passkey",
-    });
+    try {
+      console.log("Storing credential for user:", user.id);
+      const credentialId = Buffer.from(credential.id).toString("base64url");
+      const credentialData = {
+        id: credentialId,
+        user_id: user.id,
+        public_key: Buffer.from(credential.publicKey).toString("base64"),
+        counter,
+        transports: registrationResponse.response.transports || [],
+        credential_type: "public-key",
+        user_verified: true,
+        credential_backed_up: true,
+        name: "Passkey",
+      };
+      console.log("Credential data:", JSON.stringify(credentialData, null, 2));
+      
+      const credentialResult = await apiClient.post("/api/webauthn/credentials", credentialData);
+      console.log("Credential storage result:", credentialResult);
+    } catch (credentialError) {
+      console.error("Failed to store credential:", credentialError);
+      
+      // Check if it's a duplicate credential error (422)
+      if (credentialError instanceof Error && credentialError.message.includes('422')) {
+        event.json(400, {
+          success: false,
+          error: "This passkey has already been registered. Please try with a different authenticator.",
+        });
+      } else {
+        event.json(500, {
+          success: false,
+          error: `Failed to store credential: ${credentialError instanceof Error ? credentialError.message : 'Unknown error'}`,
+        });
+      }
+      return;
+    }
 
     // Clean up challenge
     await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
