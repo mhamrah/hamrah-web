@@ -111,6 +111,24 @@ export const onPost: RequestHandler = async (event) => {
       ? 1
       : 0;
 
+    // Ensure user exists in database before storing credential
+    try {
+      const userExistsResponse = await apiClient.get(`/api/users/${user.id}`);
+      if (!userExistsResponse.success) {
+        // User doesn't exist, create them with available info from session
+        await internalApiClient.post("/api/internal/users", {
+          id: user.id,
+          email: user.email,
+          name: user.name || null,
+          picture: user.picture || null,
+          auth_method: "session", // Authenticated via existing session
+        });
+      }
+    } catch (userError) {
+      console.warn("User verification/creation warning:", userError);
+      // Continue with credential storage - user might exist but endpoint failed
+    }
+
     // Store the credential
     try {
       console.log("Storing credential for user:", user.id);
@@ -133,8 +151,11 @@ export const onPost: RequestHandler = async (event) => {
     } catch (credentialError) {
       console.error("Failed to store credential:", credentialError);
       
-      // Check if it's a duplicate credential error (422)
-      if (credentialError instanceof Error && credentialError.message.includes('422')) {
+      // Check if it's a duplicate credential error by looking for constraint violation keywords
+      if (credentialError instanceof Error && 
+          (credentialError.message.includes('UNIQUE constraint') || 
+           credentialError.message.includes('PRIMARY KEY constraint') ||
+           credentialError.message.toLowerCase().includes('duplicate'))) {
         event.json(400, {
           success: false,
           error: "This passkey has already been registered. Please try with a different authenticator.",
