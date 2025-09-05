@@ -1,7 +1,7 @@
 // Integration test to ensure iOS app WebAuthn compatibility
 // This test validates the API contract between iOS app and web endpoints
 
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { getWebAuthnConfig } from '~/lib/webauthn/config';
 
 describe('iOS WebAuthn Integration', () => {
