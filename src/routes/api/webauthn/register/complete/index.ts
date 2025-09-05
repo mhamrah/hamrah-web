@@ -5,10 +5,7 @@ import {
 } from "@simplewebauthn/server";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 import { createApiClient } from "~/lib/auth/api-client";
-
-// WebAuthn RP configuration
-const RP_ID = "hamrah.app";
-const EXPECTED_ORIGIN = "https://hamrah.app";
+import { getWebAuthnConfig } from "~/lib/webauthn/config";
 
 export const onPost: RequestHandler = async (event) => {
   try {
@@ -28,6 +25,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    const { RP_ID, EXPECTED_ORIGIN } = getWebAuthnConfig();
     const apiClient = createApiClient(event);
     const internalApiClient = createInternalApiClient(event);
 
@@ -107,7 +105,7 @@ export const onPost: RequestHandler = async (event) => {
     await apiClient.post("/api/webauthn/credentials", {
       id: Buffer.from(credential.id).toString("base64url"),
       user_id: userId,
-      public_key: Buffer.from(credential.publicKey).toString("base64"),
+      public_key: Array.from(new Uint8Array(credential.publicKey)),
       counter,
       transports: registrationResponse.response.transports || [],
       credential_type: "public-key",
