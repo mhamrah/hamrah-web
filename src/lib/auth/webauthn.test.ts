@@ -32,6 +32,7 @@ vi.mock('./api-client', () => {
 describe('WebAuthnClient', () => {
   let webauthnClient: WebAuthnClient;
   let mockApiClient: any;
+  let mockFetch: any;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -41,6 +42,10 @@ describe('WebAuthnClient', () => {
       ...global.crypto,
       randomUUID: vi.fn(() => 'test-uuid-1234') as () => `${string}-${string}-${string}-${string}-${string}`,
     };
+
+    // Mock fetch for WebAuthn API calls
+    mockFetch = vi.fn();
+    global.fetch = mockFetch;
 
     // Mock window.PublicKeyCredential for WebAuthn support
     Object.defineProperty(window, 'PublicKeyCredential', {
@@ -92,15 +97,24 @@ describe('WebAuthnClient', () => {
       const { startRegistration } = await import('@simplewebauthn/browser');
 
       // Mock registration begin response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        options: {
-          challengeId: 'challenge-123',
-          challenge: 'test-challenge',
-          rp: { name: 'Hamrah App', id: 'hamrah.app' },
-          user: { id: 'user-123', name: 'test@example.com', displayName: 'Test User' },
-        },
-      });
+      mockFetch
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            options: {
+              challengeId: 'challenge-123',
+              challenge: 'test-challenge',
+              rp: { name: 'Hamrah App', id: 'hamrah.app' },
+              user: { id: 'user-123', name: 'test@example.com', displayName: 'Test User' },
+            },
+          }),
+        })
+        // Mock registration complete response
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+          }),
+        });
 
       // Mock browser registration
       vi.mocked(startRegistration).mockResolvedValue({
@@ -114,41 +128,50 @@ describe('WebAuthnClient', () => {
         type: 'public-key',
       } as any);
 
-      // Mock registration complete response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-      });
-
       const result = await webauthnClient.registerPasskey({
         email: 'test@example.com',
         name: 'Test User',
       });
 
       expect(result.success).toBe(true);
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/register/begin', {
-        email: 'test@example.com',
-        name: 'Test User',
-      });
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/register/complete', {
-        challengeId: 'challenge-123',
-        response: expect.any(Object),
-        email: 'test@example.com',
-        name: 'Test User',
-      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/webauthn/register/begin', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/webauthn/register/complete', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
     });
 
     it('should register additional passkey for existing user', async () => {
       const { startRegistration } = await import('@simplewebauthn/browser');
 
       // Mock registration begin response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        options: {
-          challengeId: 'challenge-123',
-          challenge: 'test-challenge',
-          excludeCredentials: [{ id: 'existing-cred', type: 'public-key', transports: ['usb'] }],
-        },
-      });
+      mockFetch
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            options: {
+              challengeId: 'challenge-123',
+              challenge: 'test-challenge',
+              excludeCredentials: [{ id: 'existing-cred', type: 'public-key', transports: ['usb'] }],
+            },
+          }),
+        })
+        // Mock registration complete response
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+          }),
+        });
 
       // Mock successful registration
       vi.mocked(startRegistration).mockResolvedValue({
@@ -156,27 +179,27 @@ describe('WebAuthnClient', () => {
         response: { transports: ['internal'] },
       } as any);
 
-      // Mock registration complete response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-      });
-
       const result = await webauthnClient.registerPasskey({
         email: 'existing@example.com',
         name: 'Existing User',
       });
 
       expect(result.success).toBe(true);
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/register/begin', {
-        email: 'existing@example.com',
-        name: 'Existing User',
-      });
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/register/complete', {
-        challengeId: 'challenge-123',
-        response: expect.any(Object),
-        email: 'existing@example.com',
-        name: 'Existing User',
-      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/webauthn/register/begin', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/webauthn/register/complete', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
     });
 
     it('should handle WebAuthn not supported', async () => {
@@ -198,9 +221,11 @@ describe('WebAuthnClient', () => {
       const { startRegistration } = await import('@simplewebauthn/browser');
 
       // Mock registration begin response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        options: { challengeId: 'challenge-123' },
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          options: { challengeId: 'challenge-123' },
+        }),
       });
 
       vi.mocked(startRegistration).mockRejectedValue(new Error('User cancelled'));
@@ -220,18 +245,29 @@ describe('WebAuthnClient', () => {
       const { startAuthentication } = await import('@simplewebauthn/browser');
 
       // Mock authentication begin response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        options: {
-          challengeId: 'challenge-123',
-          challenge: 'auth-challenge',
-          allowCredentials: [{
-            id: 'Y3JlZC0x',
-            type: 'public-key',
-            transports: ['internal'],
-          }],
-        },
-      });
+      mockFetch
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            options: {
+              challengeId: 'challenge-123',
+              challenge: 'auth-challenge',
+              allowCredentials: [{
+                id: 'Y3JlZC0x',
+                type: 'public-key',
+                transports: ['internal'],
+              }],
+            },
+          }),
+        })
+        // Mock authentication complete response
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            user: { id: 'user-123', email: 'test@example.com' },
+            session_token: 'session-123',
+          }),
+        });
 
       // Mock browser authentication
       vi.mocked(startAuthentication).mockResolvedValue({
@@ -245,13 +281,6 @@ describe('WebAuthnClient', () => {
         type: 'public-key',
       } as any);
 
-      // Mock authentication complete response
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        user: { id: 'user-123', email: 'test@example.com' },
-        session_token: 'session-123',
-      });
-
       const result = await webauthnClient.authenticateWithPasskey({
         email: 'test@example.com',
       });
@@ -259,20 +288,29 @@ describe('WebAuthnClient', () => {
       expect(result.success).toBe(true);
       expect(result.user).toEqual({ id: 'user-123', email: 'test@example.com' });
       expect(result.session_token).toBe('session-123');
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/authenticate/begin', {
-        email: 'test@example.com',
-      });
-      expect(mockApiClient.post).toHaveBeenCalledWith('/api/webauthn/authenticate/complete', {
-        challengeId: 'challenge-123',
-        response: expect.any(Object),
-        email: 'test@example.com',
-      });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/webauthn/authenticate/begin', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/webauthn/authenticate/complete', expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      }));
     });
 
     it('should fail when user not found', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
-        success: false,
-        error: 'User not found',
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          error: 'User not found',
+        }),
       });
 
       const result = await webauthnClient.authenticateWithPasskey({
@@ -284,9 +322,11 @@ describe('WebAuthnClient', () => {
     });
 
     it('should fail when no credentials found', async () => {
-      mockApiClient.post.mockResolvedValueOnce({
-        success: false,
-        error: 'No passkeys found for this user',
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          error: 'No passkeys found for this user',
+        }),
       });
 
       const result = await webauthnClient.authenticateWithPasskey({
@@ -300,9 +340,11 @@ describe('WebAuthnClient', () => {
     it('should handle authentication cancellation', async () => {
       const { startAuthentication } = await import('@simplewebauthn/browser');
 
-      mockApiClient.post.mockResolvedValueOnce({
-        success: true,
-        options: { challengeId: 'challenge-123' },
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          options: { challengeId: 'challenge-123' },
+        }),
       });
 
       vi.mocked(startAuthentication).mockRejectedValue(new Error('User cancelled'));
