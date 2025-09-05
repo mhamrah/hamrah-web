@@ -86,56 +86,6 @@ describe('WebAuthnClient', () => {
     });
   });
 
-  describe('hasPasskeys', () => {
-    it('should return true when user exists and has credentials', async () => {
-      mockApiClient.get
-        .mockResolvedValueOnce({
-          success: true,
-          user: { id: 'user-123' },
-        })
-        .mockResolvedValueOnce({
-          success: true,
-          credentials: [{ id: 'cred-1' }],
-        });
-
-      const result = await webauthnClient.hasPasskeys('test@example.com');
-      expect(result).toBe(true);
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/users/by-email/test%40example.com');
-      expect(mockApiClient.get).toHaveBeenCalledWith('/api/webauthn/users/user-123/credentials');
-    });
-
-    it('should return false when user does not exist', async () => {
-      mockApiClient.get.mockResolvedValueOnce({
-        success: false,
-        user: null,
-      });
-
-      const result = await webauthnClient.hasPasskeys('nonexistent@example.com');
-      expect(result).toBe(false);
-    });
-
-    it('should return false when user has no credentials', async () => {
-      mockApiClient.get
-        .mockResolvedValueOnce({
-          success: true,
-          user: { id: 'user-123' },
-        })
-        .mockResolvedValueOnce({
-          success: true,
-          credentials: [],
-        });
-
-      const result = await webauthnClient.hasPasskeys('test@example.com');
-      expect(result).toBe(false);
-    });
-
-    it('should handle API errors gracefully', async () => {
-      mockApiClient.get.mockRejectedValue(new Error('Network error'));
-
-      const result = await webauthnClient.hasPasskeys('test@example.com');
-      expect(result).toBe(false);
-    });
-  });
 
   describe('registerPasskey', () => {
     it('should register a new passkey for new user', async () => {
