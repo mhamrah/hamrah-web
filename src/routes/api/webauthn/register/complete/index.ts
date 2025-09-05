@@ -84,17 +84,18 @@ export const onPost: RequestHandler = async (event) => {
 
     // Check if user exists, create if not
     try {
-      const userResponse = await apiClient.get(
-        `/api/users/by-email/${encodeURIComponent(email)}`,
-      );
+      const userResponse = await internalApiClient.checkUserByEmail(email);
 
-      if (!userResponse.success || !userResponse.user) {
+      if (!userResponse.success || !userResponse.user_exists) {
         // Create new user
         await internalApiClient.post("/api/internal/users", {
-          id: userId,
           email,
           name,
           auth_method: "webauthn",
+          provider: "webauthn",
+          provider_id: userId,
+          platform: "web",
+          user_agent: event.request.headers.get("user-agent") || undefined,
         });
       }
     } catch (error) {

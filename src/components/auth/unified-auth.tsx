@@ -63,21 +63,15 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
     error.value = "";
 
     try {
-      const webauthnClient = await import("~/lib/auth/webauthn").then(
-        (m) => m.webauthnClient,
-      );
-      const hasPasskeys = await webauthnClient.hasPasskeys(email);
-
+      // For security reasons, we no longer check if user has passkeys upfront.
+      // We show a unified passkey flow that attempts registration/authentication as needed.
       passkeyEmail.value = email;
       showEmailInput.value = false;
-
-      if (hasPasskeys) {
-        showPasskeyLogin.value = true;
-      } else {
-        showPasskeySignup.value = true;
-      }
+      
+      // Show signup flow - it will handle both new users and existing users appropriately
+      showPasskeySignup.value = true;
     } catch {
-      error.value = "Failed to check passkey status. Please try again.";
+      error.value = "Failed to start passkey flow. Please try again.";
     } finally {
       isLoading.value = false;
     }
@@ -134,6 +128,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   if (showPasskeySignup.value) {
     return (
       <PasskeySignup
+        email={passkeyEmail.value}
         onSuccess={handlePasskeySuccess}
         onError={handlePasskeyError}
         onCancel={handlePasskeyCancel}

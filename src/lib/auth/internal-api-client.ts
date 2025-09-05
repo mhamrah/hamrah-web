@@ -152,6 +152,19 @@ export class InternalApiClient {
       method: 'DELETE',
     });
   }
+
+  // Internal endpoint: Check if user exists by email
+  async checkUserByEmail(email: string): Promise<{
+    success: boolean;
+    user_exists: boolean;
+    user?: ApiUser;
+    error?: string;
+  }> {
+    return this.fetchInternal('/api/internal/users/by-email', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
 }
 
 /**
