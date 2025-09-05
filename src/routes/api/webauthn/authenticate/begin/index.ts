@@ -5,9 +5,7 @@ import {
 } from "@simplewebauthn/server";
 import { createApiClient } from "~/lib/auth/api-client";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
-
-// WebAuthn RP configuration
-const RP_ID = "hamrah.app";
+import { getWebAuthnConfig } from "~/lib/webauthn/config";
 
 export const onPost: RequestHandler = async (event) => {
   try {
@@ -22,6 +20,7 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
+    const { RP_ID } = getWebAuthnConfig();
     const apiClient = createApiClient(event);
     const internalApiClient = createInternalApiClient(event);
 

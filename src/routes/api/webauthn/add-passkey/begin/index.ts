@@ -5,13 +5,11 @@ import {
 } from "@simplewebauthn/server";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 import { createApiClient } from "~/lib/auth/api-client";
-
-// WebAuthn RP configuration
-const RP_NAME = "Hamrah App";
-const RP_ID = "hamrah.app";
+import { getWebAuthnConfig } from "~/lib/webauthn/config";
 
 export const onPost: RequestHandler = async (event) => {
   try {
+    const { RP_NAME, RP_ID } = getWebAuthnConfig();
     // Get authenticated user from session
     const sessionToken = event.cookie.get("session")?.value;
     if (!sessionToken) {
