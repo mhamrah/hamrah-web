@@ -53,31 +53,8 @@ export class WebAuthnClient {
     );
   }
 
-  // Check if a user has passkeys for the given email
-  async hasPasskeys(email: string): Promise<boolean> {
-    try {
-      const userResponse = await this.apiClient.get(`/api/users/by-email/${encodeURIComponent(email)}`);
-      
-      if (!userResponse.success || !userResponse.user) {
-        return false;
-      }
-
-      const credentialsResponse = await this.apiClient.get(`/api/webauthn/users/${userResponse.user.id}/credentials`);
-      return credentialsResponse.success && credentialsResponse.credentials?.length > 0;
-    } catch {
-      return false;
-    }
-  }
-
-  // Check if a user exists (public method for auth flows)
-  async userExists(email: string): Promise<boolean> {
-    try {
-      const userResponse = await this.apiClient.get(`/api/users/by-email/${encodeURIComponent(email)}`);
-      return userResponse.success && !!userResponse.user;
-    } catch {
-      return false;
-    }
-  }
+  // NOTE: User existence checking has been removed for security reasons.
+  // The auth flow now attempts both register and authenticate without revealing user existence.
 
   // Register a new passkey (can be first passkey for new user or additional passkey)
   async registerPasskey(request: PasskeyRegistrationRequest): Promise<PasskeyRegistrationResult> {

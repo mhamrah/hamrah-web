@@ -8,6 +8,7 @@ import {
 import { webauthnClient } from "~/lib/auth/webauthn";
 
 interface PasskeySignupProps {
+  email?: string;
   onSuccess?: QRL<(user: any) => void>;
   onError?: QRL<(error: string) => void>;
   onCancel?: QRL<() => void>;
@@ -16,7 +17,7 @@ interface PasskeySignupProps {
 }
 
 export const PasskeySignup = component$<PasskeySignupProps>((props) => {
-  const email = useSignal("");
+  const email = useSignal(props.email || "");
   const name = useSignal("");
   const isLoading = useSignal(false);
   const error = useSignal<string>("");
@@ -36,6 +37,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
     error.value = "";
 
     try {
+      // First attempt registration
       const result = await webauthnClient.registerPasskey({
         email: email.value.trim(),
         name: name.value.trim(),
@@ -55,9 +57,30 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
           await props.onError?.(error.value);
         }
       } else {
-        const errorMsg = result.error || "Registration failed";
-        error.value = errorMsg;
-        await props.onError?.(errorMsg);
+        // If registration failed, check if it's because user already exists with passkeys
+        if (result.error?.includes("existing account") || result.error?.includes("already exists")) {
+          // User exists with passkeys - try authentication instead
+          try {
+            const authResult = await webauthnClient.authenticateWithPasskey({
+              email: email.value.trim(),
+            });
+
+            if (authResult.success && authResult.user) {
+              await props.onSuccess?.(authResult.user);
+            } else {
+              error.value = "Please use your existing passkey to sign in";
+              await props.onError?.(error.value);
+            }
+          } catch {
+            error.value = "Please use your existing passkey to sign in";
+            await props.onError?.(error.value);
+          }
+        } else {
+          // Other registration error
+          const errorMsg = result.error || "Registration failed";
+          error.value = errorMsg;
+          await props.onError?.(errorMsg);
+        }
       }
     } catch (err) {
       const errorMsg =
@@ -92,10 +115,10 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
           </svg>
         </div>
         <h3 class="mt-4 text-lg font-semibold text-gray-900">
-          Create Account with Passkey
+          Continue with Passkey
         </h3>
         <p class="mt-2 text-sm text-gray-600">
-          Create a secure account using your device's biometric authentication
+          Sign in or create account using your device's biometric authentication
         </p>
       </div>
 
@@ -141,8 +164,9 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
               email.value = (e.target as HTMLInputElement).value;
             }}
             placeholder="Enter your email"
-            disabled={isLoading.value}
-            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isLoading.value || !!props.email}
+            readOnly={!!props.email}
+            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-gray-50 read-only:text-gray-600"
           />
         </div>
       </div>
@@ -157,7 +181,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
           {isLoading.value ? (
             <div class="flex items-center space-x-2">
               <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-              <span>Creating Account...</span>
+              <span>Authenticating...</span>
             </div>
           ) : (
             <div class="flex items-center space-x-2">
@@ -174,7 +198,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
                   d="M12 4.5v15m7.5-7.5h-15"
                 />
               </svg>
-              <span>Create Account with Passkey</span>
+              <span>Continue with Passkey</span>
             </div>
           )}
         </button>

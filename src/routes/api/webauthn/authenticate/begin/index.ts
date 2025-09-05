@@ -4,6 +4,7 @@ import {
   type GenerateAuthenticationOptionsOpts,
 } from "@simplewebauthn/server";
 import { createApiClient } from "~/lib/auth/api-client";
+import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 
 // WebAuthn RP configuration
 const RP_ID = "hamrah.app";
@@ -22,13 +23,12 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     const apiClient = createApiClient(event);
+    const internalApiClient = createInternalApiClient(event);
 
     // Get user by email
-    const userResponse = await apiClient.get(
-      `/api/users/by-email/${encodeURIComponent(email)}`,
-    );
+    const userResponse = await internalApiClient.checkUserByEmail(email);
 
-    if (!userResponse.success || !userResponse.user) {
+    if (!userResponse.success || !userResponse.user_exists || !userResponse.user) {
       event.json(404, {
         success: false,
         error: "User not found",

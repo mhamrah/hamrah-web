@@ -4,6 +4,7 @@ import {
   type GenerateRegistrationOptionsOpts,
 } from "@simplewebauthn/server";
 import { createApiClient } from "~/lib/auth/api-client";
+import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 
 // WebAuthn RP configuration
 const RP_NAME = "Hamrah App";
@@ -26,17 +27,16 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     const apiClient = createApiClient(event);
+    const internalApiClient = createInternalApiClient(event);
 
     // Check if user exists and enforce OAuth security rule
     let userId: string;
     let excludeCredentials: any[] = [];
 
     try {
-      const userResponse = await apiClient.get(
-        `/api/users/by-email/${encodeURIComponent(email)}`,
-      );
+      const userResponse = await internalApiClient.checkUserByEmail(email);
 
-      if (userResponse.success && userResponse.user) {
+      if (userResponse.success && userResponse.user_exists && userResponse.user) {
         // User exists - check if they require OAuth verification first
         const user = userResponse.user;
         const hasOAuthMethod =
