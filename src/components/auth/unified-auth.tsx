@@ -1,7 +1,13 @@
-import { component$, useSignal, $, type QRL } from "@builder.io/qwik";
+import {
+  component$,
+  useSignal,
+  $,
+  type QRL,
+  useVisibleTask$,
+} from "@builder.io/qwik";
 import { PasskeyLogin } from "./passkey-login";
 import { PasskeySignup } from "./passkey-signup";
-import { WebAuthnClient } from "~/lib/auth/webauthn";
+import { WebAuthnClient, webauthnClient } from "~/lib/auth/webauthn";
 
 interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
@@ -20,8 +26,23 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   const passkeyEmail = useSignal("");
   const emailInput = useSignal("");
   const showEmailInput = useSignal(false);
+  const hasConditionalUI = useSignal(false);
+  const passkeyAvailable = useSignal(false);
 
   const redirectUrl = props.redirectUrl;
+
+  // Check for conditional UI support on component mount
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(async () => {
+    if (WebAuthnClient.isSupported()) {
+      const conditionalSupported =
+        await WebAuthnClient.isConditionalMediationAvailable();
+      hasConditionalUI.value = conditionalSupported;
+      // For now, assume passkeys are available if conditional UI is supported
+      // In a real implementation, you might want to check if there are actually stored passkeys
+      passkeyAvailable.value = conditionalSupported;
+    }
+  });
 
   const handleGoogleAuth = $(async () => {
     isLoading.value = true;
@@ -40,6 +61,36 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       window.location.href = `/auth/apple?redirect=${encodeURIComponent(redirectUrl)}`;
     } else {
       window.location.href = "/auth/apple";
+    }
+  });
+
+  const handleDirectPasskeyAuth = $(async () => {
+    if (!WebAuthnClient.isSupported()) {
+      error.value = "Passkeys are not supported in this browser";
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = "";
+
+    try {
+      const result = await webauthnClient.authenticateWithConditionalUI();
+
+      if (result.success && result.user && result.session_token) {
+        success.value = "Successfully signed in with passkey!";
+        await props.onSuccess?.(result.user);
+      } else {
+        const errorMsg = result.error || "Authentication failed";
+        error.value = errorMsg;
+        await props.onError?.(errorMsg);
+      }
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Authentication failed";
+      error.value = errorMsg;
+      await props.onError?.(errorMsg);
+    } finally {
+      isLoading.value = false;
     }
   });
 
@@ -190,7 +241,39 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       <div class="space-y-4">
         {/* Passkey Option - Primary */}
         <div class="space-y-3">
-          {showEmailInput.value ? (
+          {passkeyAvailable.value && hasConditionalUI.value ? (
+            // Direct passkey authentication (no email required)
+            <button
+              type="button"
+              onClick$={handleDirectPasskeyAuth}
+              disabled={isLoading.value}
+              class="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isLoading.value ? (
+                <div class="flex items-center space-x-2">
+                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  <span>Authenticating...</span>
+                </div>
+              ) : (
+                <div class="flex items-center space-x-2">
+                  <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width={1.5}
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1721.75 8.25z"
+                    />
+                  </svg>
+                  <span>Sign in with Passkey</span>
+                </div>
+              )}
+            </button>
+          ) : showEmailInput.value ? (
             <div class="space-y-3">
               <div>
                 <label

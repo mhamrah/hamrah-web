@@ -53,6 +53,23 @@ export class WebAuthnClient {
     );
   }
 
+  // Check if conditional UI (autofill-assisted requests) is supported
+  static async isConditionalMediationAvailable(): Promise<boolean> {
+    if (!WebAuthnClient.isSupported()) {
+      return false;
+    }
+
+    try {
+      if (window.PublicKeyCredential && 
+          PublicKeyCredential.isConditionalMediationAvailable) {
+        return await PublicKeyCredential.isConditionalMediationAvailable();
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   // NOTE: User existence checking has been removed for security reasons.
   // The auth flow now attempts both register and authenticate without revealing user existence.
 
@@ -117,6 +134,72 @@ export class WebAuthnClient {
       return {
         success: false,
         error: error.message || 'Registration failed',
+      };
+    }
+  }
+
+  // Authenticate with passkey using conditional UI (no email required)
+  async authenticateWithConditionalUI(): Promise<PasskeyAuthenticationResult> {
+    if (!WebAuthnClient.isSupported()) {
+      return {
+        success: false,
+        error: 'WebAuthn is not supported in this browser',
+      };
+    }
+
+    try {
+      // Generate a challenge for conditional UI authentication
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      // Use conditional mediation to get any available passkey for this domain
+      const authResponse = await navigator.credentials.get({
+        publicKey: {
+          challenge: challenge,
+          timeout: 60000,
+          userVerification: "preferred",
+          // Empty allowCredentials means any credential for this RP
+          allowCredentials: []
+        },
+        mediation: "conditional" as any // TypeScript may not recognize this yet
+      });
+
+      if (!authResponse) {
+        return {
+          success: false,
+          error: 'No passkey selected',
+        };
+      }
+
+      // Send the credential response to our backend for verification
+      const completeResponse: any = await fetch('/api/webauthn/authenticate/conditional', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          response: authResponse,
+        }),
+      }).then(res => res.json());
+
+      if (!completeResponse.success) {
+        return {
+          success: false,
+          error: completeResponse.error || 'Authentication failed',
+        };
+      }
+
+      return {
+        success: true,
+        user: completeResponse.user,
+        session_token: completeResponse.session_token,
+      };
+
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Authentication failed',
       };
     }
   }
