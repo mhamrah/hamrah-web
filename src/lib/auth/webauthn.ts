@@ -61,8 +61,8 @@ export class WebAuthnClient {
     }
 
     try {
-      if (window.PublicKeyCredential && 
-          PublicKeyCredential.isConditionalMediationAvailable) {
+      if (window.PublicKeyCredential &&
+        PublicKeyCredential.isConditionalMediationAvailable) {
         const available = await PublicKeyCredential.isConditionalMediationAvailable();
         console.log('🔐 Conditional mediation available:', available);
         return available;
@@ -89,22 +89,7 @@ export class WebAuthnClient {
     return true;
   }
 
-  // Helper method to convert base64url string to Uint8Array
-  private base64urlToUint8Array(base64url: string): Uint8Array {
-    // Convert base64url to base64
-    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-    // Pad with = if necessary  
-    const padded = base64 + '==='.slice((base64.length + 3) % 4);
-    // Decode base64 to binary string
-    const binary = atob(padded);
-    // Convert binary string to Uint8Array with proper ArrayBuffer
-    const buffer = new ArrayBuffer(binary.length);
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  }
+
 
   // NOTE: User existence checking has been removed for security reasons.
   // The auth flow now attempts both register and authenticate without revealing user existence.
@@ -119,7 +104,7 @@ export class WebAuthnClient {
     }
 
     try {
-      // Step 1: Begin registration - get challenge and options  
+      // Step 1: Begin registration - get challenge and options
       const beginResponse: any = await fetch('/api/webauthn/register/begin', {
         method: 'POST',
         headers: {
@@ -185,7 +170,7 @@ export class WebAuthnClient {
 
     try {
       console.log('🔐 Starting passkey authentication...');
-      
+
       // Step 1: Get a challenge from the server for discoverable credentials
       const beginResponse: any = await fetch('/api/webauthn/authenticate/discoverable', {
         method: 'POST',
@@ -206,21 +191,11 @@ export class WebAuthnClient {
 
       console.log('🔐 Got challenge, attempting authentication...');
 
-      // Step 2: Prepare options for WebAuthn API
-      // Convert challenge from base64url string to Uint8Array
-      const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-        challenge: this.base64urlToUint8Array(beginResponse.options.challenge) as BufferSource,
-        timeout: beginResponse.options.timeout,
-        rpId: beginResponse.options.rpId,
-        allowCredentials: [], // Empty for discoverable credentials
-        userVerification: beginResponse.options.userVerification || 'preferred'
-      };
-
-      console.log('🔐 WebAuthn options:', publicKeyCredentialRequestOptions);
-
-      // Step 3: Use WebAuthn with properly formatted options
-      const authResponse = await navigator.credentials.get({
-        publicKey: publicKeyCredentialRequestOptions
+      // Step 2: Use SimpleWebAuthn's startAuthentication to handle the browser interaction
+      // This properly handles credential serialization for us
+      const authResponse = await startAuthentication({
+        optionsJSON: beginResponse.options,
+        useBrowserAutofill: true
       });
 
       console.log('🔐 Authentication response:', authResponse);
@@ -268,7 +243,7 @@ export class WebAuthnClient {
       console.error('🔐 Error name:', error.name);
       console.error('🔐 Error message:', error.message);
       console.error('🔐 Error stack:', error.stack);
-      
+
       // Provide more specific error messages based on error type
       let errorMessage = 'Authentication failed';
       if (error.name === 'NotAllowedError') {
@@ -282,7 +257,7 @@ export class WebAuthnClient {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       return {
         success: false,
         error: errorMessage,
