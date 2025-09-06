@@ -11,8 +11,9 @@ export const onPost: RequestHandler = async (event) => {
   try {
     const body = (await event.request.json()) as {
       response: any;
+      challengeId?: string;
     };
-    const { response: authResponse } = body;
+    const { response: authResponse, challengeId } = body;
 
     if (!authResponse) {
       event.json(400, {
@@ -46,31 +47,58 @@ export const onPost: RequestHandler = async (event) => {
 
     const credential = credentialResponse.credential;
 
-    // Generate a challenge for verification (in real implementation, this should be stored/verified)
-    // For conditional UI, we need to extract the challenge from the client data
-    let challengeBytes: Uint8Array;
-    try {
-      const clientDataJSON = JSON.parse(
-        Buffer.from(
-          authResponse.response.clientDataJSON,
-          "base64url",
-        ).toString(),
+    // Get the challenge - either from challengeId or extract from client data
+    let expectedChallenge: string;
+    
+    if (challengeId) {
+      // Use provided challenge ID to get the stored challenge
+      const challengeResponse = await apiClient.get(
+        `/api/webauthn/challenges/${challengeId}`,
       );
-      challengeBytes = new Uint8Array(
-        Buffer.from(clientDataJSON.challenge, "base64url"),
-      );
-    } catch {
-      event.json(400, {
-        success: false,
-        error: "Invalid client data",
-      });
-      return;
+
+      if (!challengeResponse.success || !challengeResponse.challenge) {
+        event.json(400, {
+          success: false,
+          error: "Invalid or expired challenge",
+        });
+        return;
+      }
+
+      const challenge = challengeResponse.challenge;
+
+      // Check if challenge has expired
+      if (challenge.expires_at < Date.now()) {
+        event.json(400, {
+          success: false,
+          error: "Challenge expired",
+        });
+        return;
+      }
+
+      expectedChallenge = challenge.challenge;
+    } else {
+      // Extract challenge from client data for backward compatibility
+      try {
+        const clientDataJSON = JSON.parse(
+          Buffer.from(
+            authResponse.response.clientDataJSON,
+            "base64url",
+          ).toString(),
+        );
+        expectedChallenge = clientDataJSON.challenge;
+      } catch {
+        event.json(400, {
+          success: false,
+          error: "Invalid client data or missing challenge",
+        });
+        return;
+      }
     }
 
     // Verify authentication response
     const verification: VerifyAuthenticationResponseOpts = {
       response: authResponse,
-      expectedChallenge: Buffer.from(challengeBytes).toString("base64url"),
+      expectedChallenge: expectedChallenge,
       expectedOrigin: EXPECTED_ORIGIN,
       expectedRPID: RP_ID,
       credential: {
@@ -128,6 +156,11 @@ export const onPost: RequestHandler = async (event) => {
         error: "Failed to create session",
       });
       return;
+    }
+
+    // Clean up challenge if it was provided
+    if (challengeId) {
+      await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
     }
 
     event.json(200, {
