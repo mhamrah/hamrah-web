@@ -28,14 +28,18 @@ export const onPost: RequestHandler = async (event) => {
     const internalApiClient = createInternalApiClient(event);
 
     // Extract credential ID from the authentication response
-    const credentialId = Buffer.from(authResponse.rawId, "base64url").toString(
-      "base64url",
-    );
+    // rawId is an ArrayBuffer, convert it to base64url string for database lookup
+    const credentialId = Buffer.from(authResponse.rawId).toString("base64url");
+
+    console.log('🔐 Looking up credential ID:', credentialId);
+    console.log('🔐 Raw ID buffer length:', authResponse.rawId.byteLength);
 
     // Find the credential in our database
     const credentialResponse = await apiClient.get(
       `/api/webauthn/credentials/${credentialId}`,
     );
+
+    console.log('🔐 Credential lookup response:', credentialResponse);
 
     if (!credentialResponse.success || !credentialResponse.credential) {
       event.json(404, {
