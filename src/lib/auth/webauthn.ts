@@ -89,6 +89,23 @@ export class WebAuthnClient {
     return true;
   }
 
+  // Helper method to convert base64url string to Uint8Array
+  private base64urlToUint8Array(base64url: string): Uint8Array {
+    // Convert base64url to base64
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    // Pad with = if necessary  
+    const padded = base64 + '==='.slice((base64.length + 3) % 4);
+    // Decode base64 to binary string
+    const binary = atob(padded);
+    // Convert binary string to Uint8Array with proper ArrayBuffer
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
   // NOTE: User existence checking has been removed for security reasons.
   // The auth flow now attempts both register and authenticate without revealing user existence.
 
@@ -189,13 +206,21 @@ export class WebAuthnClient {
 
       console.log('🔐 Got challenge, attempting authentication...');
 
-      // Step 2: Use WebAuthn with empty allowCredentials (discoverable credentials)
+      // Step 2: Prepare options for WebAuthn API
+      // Convert challenge from base64url string to Uint8Array
+      const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
+        challenge: this.base64urlToUint8Array(beginResponse.options.challenge) as BufferSource,
+        timeout: beginResponse.options.timeout,
+        rpId: beginResponse.options.rpId,
+        allowCredentials: [], // Empty for discoverable credentials
+        userVerification: beginResponse.options.userVerification || 'preferred'
+      };
+
+      console.log('🔐 WebAuthn options:', publicKeyCredentialRequestOptions);
+
+      // Step 3: Use WebAuthn with properly formatted options
       const authResponse = await navigator.credentials.get({
-        publicKey: {
-          ...beginResponse.options,
-          // Override allowCredentials to be empty for discoverable credentials
-          allowCredentials: []
-        }
+        publicKey: publicKeyCredentialRequestOptions
       });
 
       console.log('🔐 Authentication response:', authResponse);
@@ -240,9 +265,27 @@ export class WebAuthnClient {
 
     } catch (error: any) {
       console.error('🔐 Authentication error:', error);
+      console.error('🔐 Error name:', error.name);
+      console.error('🔐 Error message:', error.message);
+      console.error('🔐 Error stack:', error.stack);
+      
+      // Provide more specific error messages based on error type
+      let errorMessage = 'Authentication failed';
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Authentication was cancelled or not allowed';
+      } else if (error.name === 'NotSupportedError') {
+        errorMessage = 'Passkeys are not supported on this device';
+      } else if (error.name === 'InvalidStateError') {
+        errorMessage = 'No passkeys found for this website';
+      } else if (error.name === 'AbortError') {
+        errorMessage = 'Authentication was aborted';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       return {
         success: false,
-        error: error.message || 'Authentication failed',
+        error: errorMessage,
       };
     }
   }
