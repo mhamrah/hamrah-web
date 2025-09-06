@@ -222,8 +222,8 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
           top: 0,
           zIndex: -1,
         }}
-        tabIndex={0}
-        aria-hidden="false"
+        tabIndex={-1}
+        aria-hidden="true"
       />
       <div class="text-center">
         <h2 class="text-3xl font-bold text-gray-900">Welcome</h2>
