@@ -104,7 +104,7 @@ export const onPost: RequestHandler = async (event) => {
     // Store the credential
     await apiClient.post("/api/webauthn/credentials", {
       // Use rawId (ArrayBuffer) for stable base64url encoding; credential.id is already base64url and re-encoding it corrupts lookup
-      id: Buffer.from(credential.rawId).toString("base64url"),
+      id: Buffer.from((credential as any).rawId).toString("base64url"),
       user_id: userId,
       public_key: Array.from(new Uint8Array(credential.publicKey)),
       counter,
