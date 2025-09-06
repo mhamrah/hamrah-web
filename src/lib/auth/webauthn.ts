@@ -56,18 +56,37 @@ export class WebAuthnClient {
   // Check if conditional UI (autofill-assisted requests) is supported
   static async isConditionalMediationAvailable(): Promise<boolean> {
     if (!WebAuthnClient.isSupported()) {
+      console.log('🔐 WebAuthn not supported');
       return false;
     }
 
     try {
       if (window.PublicKeyCredential && 
           PublicKeyCredential.isConditionalMediationAvailable) {
-        return await PublicKeyCredential.isConditionalMediationAvailable();
+        const available = await PublicKeyCredential.isConditionalMediationAvailable();
+        console.log('🔐 Conditional mediation available:', available);
+        return available;
       }
+      console.log('🔐 Conditional mediation API not found');
       return false;
-    } catch {
+    } catch (error) {
+      console.log('🔐 Error checking conditional mediation:', error);
       return false;
     }
+  }
+
+  // Check if there are likely passkeys available for this domain
+  // Since we can't reliably detect this without triggering the UI,
+  // we'll assume they're available if WebAuthn is supported
+  static async hasPasskeysAvailable(): Promise<boolean> {
+    if (!WebAuthnClient.isSupported()) {
+      return false;
+    }
+
+    // For now, we'll always show the button if WebAuthn is supported
+    // The actual passkey prompt will determine if credentials exist
+    console.log('🔐 WebAuthn supported, assuming passkeys might be available');
+    return true;
   }
 
   // NOTE: User existence checking has been removed for security reasons.
@@ -138,7 +157,7 @@ export class WebAuthnClient {
     }
   }
 
-  // Authenticate with passkey using conditional UI (no email required)
+  // Authenticate with any available passkey (no email required)
   async authenticateWithConditionalUI(): Promise<PasskeyAuthenticationResult> {
     if (!WebAuthnClient.isSupported()) {
       return {
@@ -148,30 +167,50 @@ export class WebAuthnClient {
     }
 
     try {
-      // Generate a challenge for conditional UI authentication
-      const challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
+      console.log('🔐 Starting passkey authentication...');
+      
+      // Step 1: Get a challenge from the server for discoverable credentials
+      const beginResponse: any = await fetch('/api/webauthn/authenticate/discoverable', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      }).then(res => res.json());
 
-      // Use conditional mediation to get any available passkey for this domain
+      if (!beginResponse.success || !beginResponse.options) {
+        console.error('🔐 Failed to get challenge:', beginResponse);
+        return {
+          success: false,
+          error: beginResponse.error || 'Failed to begin authentication',
+        };
+      }
+
+      console.log('🔐 Got challenge, attempting authentication...');
+
+      // Step 2: Use WebAuthn with empty allowCredentials (discoverable credentials)
       const authResponse = await navigator.credentials.get({
         publicKey: {
-          challenge: challenge,
-          timeout: 60000,
-          userVerification: "preferred",
-          // Empty allowCredentials means any credential for this RP
+          ...beginResponse.options,
+          // Override allowCredentials to be empty for discoverable credentials
           allowCredentials: []
-        },
-        mediation: "conditional" as any // TypeScript may not recognize this yet
+        }
       });
 
+      console.log('🔐 Authentication response:', authResponse);
+
       if (!authResponse) {
+        console.log('🔐 No passkey selected');
         return {
           success: false,
           error: 'No passkey selected',
         };
       }
 
-      // Send the credential response to our backend for verification
+      console.log('🔐 Sending authentication to backend...');
+
+      // Step 3: Send the credential response to our backend for verification
       const completeResponse: any = await fetch('/api/webauthn/authenticate/conditional', {
         method: 'POST',
         headers: {
@@ -179,9 +218,12 @@ export class WebAuthnClient {
         },
         credentials: 'include',
         body: JSON.stringify({
+          challengeId: beginResponse.options.challengeId,
           response: authResponse,
         }),
       }).then(res => res.json());
+
+      console.log('🔐 Backend response:', completeResponse);
 
       if (!completeResponse.success) {
         return {
@@ -197,6 +239,7 @@ export class WebAuthnClient {
       };
 
     } catch (error: any) {
+      console.error('🔐 Authentication error:', error);
       return {
         success: false,
         error: error.message || 'Authentication failed',

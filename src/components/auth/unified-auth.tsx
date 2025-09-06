@@ -35,12 +35,22 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   // eslint-disable-next-line qwik/no-use-visible-task
   useVisibleTask$(async () => {
     if (WebAuthnClient.isSupported()) {
+      console.log('🔐 Checking WebAuthn capabilities...');
+      
       const conditionalSupported =
         await WebAuthnClient.isConditionalMediationAvailable();
       hasConditionalUI.value = conditionalSupported;
-      // For now, assume passkeys are available if conditional UI is supported
-      // In a real implementation, you might want to check if there are actually stored passkeys
-      passkeyAvailable.value = conditionalSupported;
+      
+      // Actually check if passkeys are available for this domain
+      if (conditionalSupported) {
+        console.log('🔐 Conditional UI supported, checking for available passkeys...');
+        const hasPasskeys = await WebAuthnClient.hasPasskeysAvailable();
+        passkeyAvailable.value = hasPasskeys;
+        console.log('🔐 Passkeys available:', hasPasskeys);
+      } else {
+        passkeyAvailable.value = false;
+        console.log('🔐 Conditional UI not supported');
+      }
     }
   });
 
