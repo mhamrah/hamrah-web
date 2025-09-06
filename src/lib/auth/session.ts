@@ -53,7 +53,7 @@ export async function validateSessionToken(event: RequestEventCommon, token: str
 export function setSessionTokenCookie(event: RequestEventCommon, token: string, expiresAt: Date): void {
   event.cookie.set("session", token, {
     expires: expiresAt,
-    sameSite: "lax",
+    sameSite: "none",  // Allow cross-site cookie sending to api.hamrah.app
     httpOnly: true,
     secure: true,
     path: "/",
