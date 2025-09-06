@@ -7,7 +7,7 @@ import {
 } from "@builder.io/qwik";
 import { PasskeyLogin } from "./passkey-login";
 import { PasskeySignup } from "./passkey-signup";
-import { WebAuthnClient, webauthnClient } from "~/lib/auth/webauthn";
+import { WebAuthnClient, webauthnClient, authenticateWithDiscoverablePasskey } from "~/lib/auth/webauthn";
 
 interface UnifiedAuthProps {
   onSuccess?: QRL<(user: any) => void>;
@@ -130,6 +130,36 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       ) {
         showEmailInput.value = true;
       }
+      error.value = errorMsg;
+      await props.onError?.(errorMsg);
+    } finally {
+      isLoading.value = false;
+    }
+  });
+
+  const handleExplicitPasskeyAuth = $(async () => {
+    if (!WebAuthnClient.isSupported()) {
+      error.value = "Passkeys are not supported in this browser";
+      return;
+    }
+
+    isLoading.value = true;
+    error.value = "";
+
+    try {
+      const result = await authenticateWithDiscoverablePasskey();
+
+      if (result.success && result.user && result.session_token) {
+        success.value = "Successfully signed in with passkey!";
+        await props.onSuccess?.(result.user);
+      } else {
+        const errorMsg = result.error || "Authentication failed";
+        error.value = errorMsg;
+        await props.onError?.(errorMsg);
+      }
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Authentication failed";
       error.value = errorMsg;
       await props.onError?.(errorMsg);
     } finally {
@@ -297,37 +327,48 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         {/* Passkey Option - Primary */}
         <div class="space-y-3">
           {passkeyAvailable.value && hasConditionalUI.value ? (
-            // Direct passkey authentication (no email required)
-            <button
-              type="button"
-              onClick$={handleDirectPasskeyAuth}
-              disabled={isLoading.value}
-              class="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isLoading.value ? (
-                <div class="flex items-center space-x-2">
-                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  <span>Authenticating...</span>
-                </div>
-              ) : (
-                <div class="flex items-center space-x-2">
-                  <svg
-                    class="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5A2.25 2.25 0 0019.5 19.5v-8.25A2.25 2.25 0 0017.25 9H6.75A2.25 2.25 0 004.5 11.25v8.25A2.25 2.25 0 006.75 21.75z"
-                    />
-                  </svg>
-                  <span>Sign in with Passkey</span>
-                </div>
-              )}
-            </button>
+            <>
+              {/* Direct passkey authentication (no email required) */}
+              <button
+                type="button"
+                onClick$={handleDirectPasskeyAuth}
+                disabled={isLoading.value}
+                class="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isLoading.value ? (
+                  <div class="flex items-center space-x-2">
+                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    <span>Authenticating...</span>
+                  </div>
+                ) : (
+                  <div class="flex items-center space-x-2">
+                    <svg
+                      class="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width={1.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5A2.25 2.25 0 0019.5 19.5v-8.25A2.25 2.25 0 0017.25 9H6.75A2.25 2.25 0 004.5 11.25v8.25A2.25 2.25 0 006.75 21.75z"
+                      />
+                    </svg>
+                    <span>Sign in with Passkey</span>
+                  </div>
+                )}
+              </button>
+              {/* Fallback explicit discoverable auth */}
+              <button
+                type="button"
+                onClick$={handleExplicitPasskeyAuth}
+                disabled={isLoading.value}
+                class="mt-2 flex w-full items-center justify-center rounded-md border border-blue-200 bg-white px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span>{isLoading.value ? "Working..." : "Having trouble? Try explicit passkey prompt"}</span>
+              </button>
+            </>
           ) : showEmailInput.value ? (
             <div class="space-y-3">
               <div>

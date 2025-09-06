@@ -468,3 +468,116 @@ export class WebAuthnClient {
 
 // Export a default instance
 export const webauthnClient = new WebAuthnClient();
+
+/**
+ * Explicit discoverable (non-conditional UI) passkey authentication flow.
+ * This bypasses conditional mediation/autofill and directly invokes a discoverable credentials get()
+ * to force the platform authenticator prompt (Touch ID / Face ID / system passkey sheet).
+ *
+ * Use this when:
+ * - Conditional UI silently does nothing (common on some Safari builds)
+ * - You want an explicit user-initiated button flow
+ */
+export async function authenticateWithDiscoverablePasskey(): Promise<PasskeyAuthenticationResult> {
+  // Basic support check (mirrors class method style)
+  if (
+    !(
+      (globalThis as any)?.PublicKeyCredential &&
+      (globalThis as any)?.navigator?.credentials &&
+      typeof (navigator as any).credentials.get === 'function'
+    )
+  ) {
+    return {
+      success: false,
+      error: 'WebAuthn is not supported in this browser',
+    };
+  }
+
+  try {
+    console.log('🔐 (Discoverable) Starting explicit passkey authentication...');
+
+    // 1. Request discoverable challenge (server returns options without allowCredentials)
+    const beginResponse: any = await fetch('/api/webauthn/authenticate/discoverable', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ explicit: true }),
+    }).then((res) => res.json());
+
+    if (!beginResponse.success || !beginResponse.options) {
+      console.error('🔐 (Discoverable) Failed to get challenge:', beginResponse);
+      return {
+        success: false,
+        error: beginResponse.error || 'Failed to begin authentication',
+      };
+    }
+
+    console.log('🔐 (Discoverable) Got challenge, invoking authenticator...');
+    console.log('🔐 (Discoverable) Options:', beginResponse.options);
+
+    // 2. Invoke authenticator WITHOUT conditional/autofill mode
+    const authResponse = await startAuthentication({
+      optionsJSON: beginResponse.options,
+      // Explicitly disable browser autofill/conditional to force prompt
+      useBrowserAutofill: false,
+    });
+
+    console.log('🔐 (Discoverable) Authentication response:', authResponse);
+
+    if (!authResponse) {
+      return {
+        success: false,
+        error: 'No passkey selected',
+      };
+    }
+
+    console.log('🔐 (Discoverable) Sending assertion to backend...');
+
+    // 3. Send to backend for verification (reuse conditional endpoint logic)
+    const completeResponse: any = await fetch('/api/webauthn/authenticate/conditional', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        challengeId: beginResponse.options.challengeId,
+        response: authResponse,
+        mode: 'discoverable-explicit',
+      }),
+    }).then((res) => res.json());
+
+    console.log('🔐 (Discoverable) Backend verification response:', completeResponse);
+
+    if (!completeResponse.success) {
+      return {
+        success: false,
+        error: completeResponse.error || 'Authentication failed',
+      };
+    }
+
+    return {
+      success: true,
+      user: completeResponse.user,
+      session_token: completeResponse.session_token,
+    };
+  } catch (error: any) {
+    console.error('🔐 (Discoverable) Authentication error:', error);
+
+    let errorMessage = 'Authentication failed';
+    if (error?.name === 'NotAllowedError') {
+      errorMessage = 'Authentication was cancelled or not allowed';
+    } else if (error?.name === 'AbortError') {
+      errorMessage = 'Authentication was aborted';
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
