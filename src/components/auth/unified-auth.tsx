@@ -80,6 +80,12 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       return;
     }
 
+    // Focus the autofill input to trigger conditional UI
+    const autofillInput = document.getElementById('webauthn-autocomplete') as HTMLInputElement | null;
+    if (autofillInput) {
+      autofillInput.focus();
+    }
+
     isLoading.value = true;
     error.value = "";
 
@@ -200,18 +206,21 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
 
   return (
     <div class="space-y-6">
-      {/* Hidden input for WebAuthn autofill/conditional UI */}
+      {/* Visible (but tiny) input for WebAuthn autofill/conditional UI */}
+
       <input
         type="text"
         id="webauthn-autocomplete"
         name="webauthn-autocomplete"
         autoComplete="webauthn"
         style={{
-          position: "absolute",
-          left: "-9999px",
           width: "1px",
           height: "1px",
-          opacity: 0,
+          opacity: 0.01,
+          position: "absolute",
+          left: 0,
+          top: 0,
+          zIndex: -1,
         }}
         tabIndex={-1}
         aria-hidden="true"
