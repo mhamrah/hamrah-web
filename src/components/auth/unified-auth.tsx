@@ -207,6 +207,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   return (
     <div class="space-y-6">
       {/* Visible (but tiny) input for WebAuthn autofill/conditional UI */}
+
       <input
         type="text"
         id="webauthn-autocomplete"
