@@ -189,14 +189,55 @@ export class WebAuthnClient {
         };
       }
 
-      console.log('🔐 Got challenge, attempting authentication...');
+      console.log('🔐 Got challenge, attempting authentication...', beginResponse.options);
+
+      // Defensive validation of options before invoking WebAuthn
+      if (!beginResponse.options.challenge) {
+        console.warn('🔐 WebAuthn: Missing challenge in options payload', beginResponse.options);
+      }
+      if (beginResponse.options.allowCredentials && !Array.isArray(beginResponse.options.allowCredentials)) {
+        console.warn('🔐 WebAuthn: allowCredentials is not an array, normalizing');
+        try {
+          beginResponse.options.allowCredentials = [];
+        } catch {
+          /* ignore */
+        }
+      }
 
       // Step 2: Use SimpleWebAuthn's startAuthentication to handle the browser interaction
-      // This properly handles credential serialization for us
-      const authResponse = await startAuthentication({
-        optionsJSON: beginResponse.options,
-        useBrowserAutofill: true
-      });
+      // Explicitly attempt conditional (autofill) mediation first; if it fails with a user‑gesture
+      // or NotAllowedError edge case (Safari quirks), fall back to a direct non-autofill attempt.
+      let authResponse: any = null;
+      try {
+        authResponse = await startAuthentication({
+          optionsJSON: beginResponse.options,
+          // Attempt browser autofill / conditional mediation pathway
+          useBrowserAutofill: true,
+        });
+      } catch (primaryErr: any) {
+        console.warn('🔐 Primary conditional/autofill authentication attempt failed:', primaryErr?.name, primaryErr?.message);
+
+        const retriable =
+          primaryErr?.name === 'NotAllowedError' ||
+          primaryErr?.name === 'InvalidStateError' ||
+          primaryErr?.message?.toLowerCase().includes('not allowed') ||
+          primaryErr?.message?.toLowerCase().includes('gesture');
+
+        if (retriable) {
+          try {
+            console.log('🔐 Retrying authentication without autofill/conditional UI...');
+            authResponse = await startAuthentication({
+              optionsJSON: beginResponse.options,
+              useBrowserAutofill: false,
+            });
+          } catch (fallbackErr: any) {
+            console.error('🔐 Fallback authentication attempt failed:', fallbackErr?.name, fallbackErr?.message);
+            throw fallbackErr;
+          }
+        } else {
+          throw primaryErr;
+        }
+      }
 
       console.log('🔐 Authentication response:', authResponse);
 

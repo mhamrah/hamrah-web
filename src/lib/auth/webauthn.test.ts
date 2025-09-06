@@ -36,7 +36,7 @@ describe('WebAuthnClient', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    
+
     // Mock crypto.randomUUID
     global.crypto = {
       ...global.crypto,
@@ -49,7 +49,7 @@ describe('WebAuthnClient', () => {
 
     // Mock window.PublicKeyCredential for WebAuthn support
     Object.defineProperty(window, 'PublicKeyCredential', {
-      value: class MockPublicKeyCredential {},
+      value: class MockPublicKeyCredential { },
       writable: true,
     });
 
@@ -404,6 +404,217 @@ describe('WebAuthnClient', () => {
 
       const result = await webauthnClient.deletePasskey('cred-123');
       expect(result).toBe(false);
+    });
+  });
+
+  /**
+   * Tests for authenticateWithConditionalUI (conditional / autofill flow)
+   */
+  describe('authenticateWithConditionalUI', () => {
+    let webauthnClient: WebAuthnClient;
+    let mockFetch: any;
+
+    beforeEach(async () => {
+      vi.clearAllMocks();
+
+      // Ensure WebAuthn is "supported"
+      Object.defineProperty(window, 'PublicKeyCredential', {
+        value: class MockPublicKeyCredential {
+          static async isConditionalMediationAvailable() {
+            return true;
+          }
+        },
+        writable: true,
+      });
+
+      Object.defineProperty(window.navigator, 'credentials', {
+        value: {
+          get: vi.fn(),
+        },
+        writable: true,
+      });
+
+      // Fresh fetch mock
+      mockFetch = vi.fn();
+      global.fetch = mockFetch;
+
+      // Import after mocks
+      const { WebAuthnClient: Client } = await import('./webauthn');
+      webauthnClient = new Client();
+    });
+
+    it('should authenticate successfully using conditional UI (primary attempt)', async () => {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      // Begin discoverable auth response
+      mockFetch
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            options: {
+              challengeId: 'disc-chal-1',
+              challenge: 'discoverable-challenge',
+              timeout: 60000,
+              rpId: 'hamrah.app',
+              userVerification: 'preferred',
+              allowCredentials: [],
+            },
+          }),
+        })
+        // Complete auth (server verification) response
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            user: { id: 'user-abc', email: 'user@example.com' },
+            session_token: 'sess-xyz',
+          }),
+        });
+
+      vi.mocked(startAuthentication).mockResolvedValueOnce({
+        id: 'cred-1',
+        rawId: 'cred-1',
+        response: {
+          clientDataJSON: '{}',
+          authenticatorData: 'auth-data',
+          signature: 'sig',
+        },
+        type: 'public-key',
+      } as any);
+
+      const result = await webauthnClient.authenticateWithConditionalUI();
+
+      expect(result.success).toBe(true);
+      expect(result.user).toEqual({ id: 'user-abc', email: 'user@example.com' });
+      expect(result.session_token).toBe('sess-xyz');
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/webauthn/authenticate/discoverable',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        }),
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/webauthn/authenticate/conditional',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        }),
+      );
+    });
+
+    it('should retry without autofill when primary conditional attempt NotAllowedError occurs', async () => {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      mockFetch
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            options: {
+              challengeId: 'disc-chal-2',
+              challenge: 'discoverable-challenge-2',
+              timeout: 60000,
+              rpId: 'hamrah.app',
+              userVerification: 'preferred',
+              allowCredentials: [],
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          json: vi.fn().mockResolvedValue({
+            success: true,
+            user: { id: 'user-retry', email: 'retry@example.com' },
+            session_token: 'sess-retry',
+          }),
+        });
+
+      const notAllowed = new Error('NotAllowedError: user gesture required');
+      (notAllowed as any).name = 'NotAllowedError';
+
+      vi.mocked(startAuthentication)
+        .mockRejectedValueOnce(notAllowed)   // primary (autofill) fails
+        .mockResolvedValueOnce({            // fallback succeeds
+          id: 'cred-retry',
+          rawId: 'cred-retry',
+          response: {
+            clientDataJSON: '{}',
+            authenticatorData: 'auth-data',
+            signature: 'sig',
+          },
+          type: 'public-key',
+        } as any);
+
+      const result = await webauthnClient.authenticateWithConditionalUI();
+
+      expect(result.success).toBe(true);
+      expect(result.user).toEqual({ id: 'user-retry', email: 'retry@example.com' });
+      expect(result.session_token).toBe('sess-retry');
+      expect(vi.mocked(startAuthentication)).toHaveBeenCalledTimes(2);
+    });
+
+    it('should fail when both primary and fallback authentication attempts fail', async () => {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          options: {
+            challengeId: 'disc-chal-3',
+            challenge: 'discoverable-challenge-3',
+            timeout: 60000,
+            rpId: 'hamrah.app',
+            userVerification: 'preferred',
+            allowCredentials: [],
+          },
+        }),
+      });
+
+      const notAllowed1 = new Error('NotAllowedError: user dismissed');
+      (notAllowed1 as any).name = 'NotAllowedError';
+      const notAllowed2 = new Error('NotAllowedError: still dismissed');
+      (notAllowed2 as any).name = 'NotAllowedError';
+
+      vi.mocked(startAuthentication)
+        .mockRejectedValueOnce(notAllowed1)  // primary attempt
+        .mockRejectedValueOnce(notAllowed2); // fallback attempt
+
+      const result = await webauthnClient.authenticateWithConditionalUI();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/NotAllowed|dismissed|Authentication failed/i);
+      expect(vi.mocked(startAuthentication)).toHaveBeenCalledTimes(2);
+    });
+
+    it('should surface non-retriable primary errors directly', async () => {
+      const { startAuthentication } = await import('@simplewebauthn/browser');
+
+      mockFetch.mockResolvedValueOnce({
+        json: vi.fn().mockResolvedValue({
+          success: true,
+          options: {
+            challengeId: 'disc-chal-4',
+            challenge: 'discoverable-challenge-4',
+            timeout: 60000,
+            rpId: 'hamrah.app',
+            userVerification: 'preferred',
+            allowCredentials: [],
+          },
+        }),
+      });
+
+      const securityErr = new Error('SecurityError: cross-origin');
+      (securityErr as any).name = 'SecurityError';
+
+      vi.mocked(startAuthentication).mockRejectedValueOnce(securityErr);
+
+      const result = await webauthnClient.authenticateWithConditionalUI();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/SecurityError|Authentication failed/i);
+      expect(vi.mocked(startAuthentication)).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -80,10 +80,20 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       return;
     }
 
-    // Focus the autofill input to trigger conditional UI
-    const autofillInput = document.getElementById('webauthn-autocomplete') as HTMLInputElement | null;
-    if (autofillInput) {
-      autofillInput.focus();
+    // If conditional UI not supported, fall back to email-driven flow
+    if (!hasConditionalUI.value) {
+      showEmailInput.value = true;
+      return;
+    }
+
+    // Try to focus the conditional UI anchor input if present
+    const anchor = document.getElementById('webauthn-autocomplete') as HTMLInputElement | null;
+    if (anchor) {
+      try {
+        anchor.focus();
+      } catch {
+        // ignore focus errors
+      }
     }
 
     isLoading.value = true;
@@ -96,13 +106,30 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         success.value = "Successfully signed in with passkey!";
         await props.onSuccess?.(result.user);
       } else {
+        // If we explicitly get a "No passkey selected" / NotAllowed case, offer fallback
         const errorMsg = result.error || "Authentication failed";
+        if (
+          errorMsg.includes("No passkey") ||
+          errorMsg.includes("cancelled") ||
+          errorMsg.includes("NotAllowed")
+        ) {
+          // Provide graceful fallback
+          showEmailInput.value = true;
+        }
         error.value = errorMsg;
         await props.onError?.(errorMsg);
       }
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Authentication failed";
+      // Fallback to manual email flow on user gesture related failures
+      if (
+        errorMsg.includes("NotAllowed") ||
+        errorMsg.includes("cancelled") ||
+        errorMsg.includes("AbortError")
+      ) {
+        showEmailInput.value = true;
+      }
       error.value = errorMsg;
       await props.onError?.(errorMsg);
     } finally {
@@ -206,25 +233,18 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
 
   return (
     <div class="space-y-6">
-      {/* Visible (but tiny) input for WebAuthn autofill/conditional UI */}
-
-      <input
-        type="text"
-        id="webauthn-autocomplete"
-        name="webauthn-autocomplete"
-        autoComplete="webauthn"
-        style={{
-          width: "1px",
-          height: "1px",
-          opacity: 0.01,
-          position: "absolute",
-          left: 0,
-          top: 0,
-          zIndex: -1,
-        }}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
+      {/* Conditional UI anchor input for WebAuthn (must be present & focusable for autofill flows) */}
+      {hasConditionalUI.value && (
+        <input
+          id="webauthn-autocomplete"
+          name="webauthn-autocomplete"
+          type="text"
+          autoComplete="webauthn"
+          class="absolute h-px w-px opacity-0 pointer-events-none"
+          tabIndex={0}
+          aria-hidden="true"
+        />
+      )}
       <div class="text-center">
         <h2 class="text-3xl font-bold text-gray-900">Welcome</h2>
         <p class="mt-2 text-gray-600">
