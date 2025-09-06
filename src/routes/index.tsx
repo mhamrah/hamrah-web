@@ -164,7 +164,9 @@ export default component$(() => {
                   Account Created
                 </dt>
                 <dd class="mt-1 text-sm text-gray-900">
-                  {user.value.created_at ? new Date(user.value.created_at).toLocaleDateString() : 'N/A'}
+                  {user.value.created_at
+                    ? new Date(user.value.created_at).toLocaleDateString()
+                    : "N/A"}
                 </dd>
               </div>
             </div>

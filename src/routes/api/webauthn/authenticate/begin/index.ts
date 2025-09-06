@@ -27,7 +27,11 @@ export const onPost: RequestHandler = async (event) => {
     // Get user by email
     const userResponse = await internalApiClient.checkUserByEmail(email);
 
-    if (!userResponse.success || !userResponse.user_exists || !userResponse.user) {
+    if (
+      !userResponse.success ||
+      !userResponse.user_exists ||
+      !userResponse.user
+    ) {
       event.json(404, {
         success: false,
         error: "User not found",

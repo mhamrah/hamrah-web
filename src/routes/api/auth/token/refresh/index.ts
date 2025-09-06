@@ -42,9 +42,9 @@ export const onPost: RequestHandler = async (event) => {
     const tokenPair = await refreshAccessToken(event, refresh_token);
 
     if (!tokenPair) {
-      event.json(401, { 
+      event.json(401, {
         error: "Authentication required",
-        message: "Invalid or expired refresh token"
+        message: "Invalid or expired refresh token",
       });
       return;
     }

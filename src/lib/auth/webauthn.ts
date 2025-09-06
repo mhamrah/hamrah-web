@@ -251,9 +251,12 @@ export class WebAuthnClient {
   // Get user's passkeys
   async getUserPasskeys(userId: string): Promise<WebAuthnCredential[]> {
     try {
+      console.log(`Fetching passkeys for user: ${userId}`);
       const response = await this.apiClient.get(`/api/webauthn/users/${userId}/credentials`);
+      console.log('API response:', response);
       return response.success ? response.credentials : [];
-    } catch {
+    } catch (error) {
+      console.error('Failed to get user passkeys:', error);
       return [];
     }
   }

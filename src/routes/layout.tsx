@@ -21,7 +21,7 @@ export const onRequest: RequestHandler = async (event) => {
     // Clear invalid session cookie if it exists
     const sessionToken = event.cookie.get("session")?.value;
     if (sessionToken) {
-      console.log('Clearing invalid session cookie');
+      console.log("Clearing invalid session cookie");
       deleteSessionTokenCookie(event);
     }
     throw event.redirect(302, "/auth/login");

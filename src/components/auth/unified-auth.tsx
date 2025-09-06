@@ -67,7 +67,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       // We show a unified passkey flow that attempts registration/authentication as needed.
       passkeyEmail.value = email;
       showEmailInput.value = false;
-      
+
       // Show signup flow - it will handle both new users and existing users appropriately
       showPasskeySignup.value = true;
     } catch {

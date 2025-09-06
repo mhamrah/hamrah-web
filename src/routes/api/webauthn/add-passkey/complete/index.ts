@@ -23,9 +23,9 @@ export const onPost: RequestHandler = async (event) => {
     // Validate session and get user
     const internalApiClient = createInternalApiClient(event);
     const sessionResult = await internalApiClient.validateSession({
-      session_token: sessionToken
+      session_token: sessionToken,
     });
-    
+
     if (!sessionResult.success || !sessionResult.user) {
       event.json(401, {
         success: false,
@@ -33,9 +33,9 @@ export const onPost: RequestHandler = async (event) => {
       });
       return;
     }
-    
+
     const user = sessionResult.user;
-    
+
     // Create API client for WebAuthn operations
     const apiClient = createApiClient(event);
     const body = (await event.request.json()) as {
@@ -143,25 +143,31 @@ export const onPost: RequestHandler = async (event) => {
         name: "Passkey",
       };
       console.log("Credential data:", JSON.stringify(credentialData, null, 2));
-      
-      const credentialResult = await apiClient.post("/api/webauthn/credentials", credentialData);
+
+      const credentialResult = await apiClient.post(
+        "/api/webauthn/credentials",
+        credentialData,
+      );
       console.log("Credential storage result:", credentialResult);
     } catch (credentialError) {
       console.error("Failed to store credential:", credentialError);
-      
+
       // Check if it's a duplicate credential error by looking for constraint violation keywords
-      if (credentialError instanceof Error && 
-          (credentialError.message.includes('UNIQUE constraint') || 
-           credentialError.message.includes('PRIMARY KEY constraint') ||
-           credentialError.message.toLowerCase().includes('duplicate'))) {
+      if (
+        credentialError instanceof Error &&
+        (credentialError.message.includes("UNIQUE constraint") ||
+          credentialError.message.includes("PRIMARY KEY constraint") ||
+          credentialError.message.toLowerCase().includes("duplicate"))
+      ) {
         event.json(400, {
           success: false,
-          error: "This passkey has already been registered. Please try with a different authenticator.",
+          error:
+            "This passkey has already been registered. Please try with a different authenticator.",
         });
       } else {
         event.json(500, {
           success: false,
-          error: `Failed to store credential: ${credentialError instanceof Error ? credentialError.message : 'Unknown error'}`,
+          error: `Failed to store credential: ${credentialError instanceof Error ? credentialError.message : "Unknown error"}`,
         });
       }
       return;

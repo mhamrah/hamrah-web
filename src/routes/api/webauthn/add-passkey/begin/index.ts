@@ -23,9 +23,9 @@ export const onPost: RequestHandler = async (event) => {
     // Validate session and get user
     const internalApiClient = createInternalApiClient(event);
     const sessionResult = await internalApiClient.validateSession({
-      session_token: sessionToken
+      session_token: sessionToken,
     });
-    
+
     if (!sessionResult.success || !sessionResult.user) {
       event.json(401, {
         success: false,
@@ -33,7 +33,7 @@ export const onPost: RequestHandler = async (event) => {
       });
       return;
     }
-    
+
     const user = sessionResult.user;
 
     // Create API client for WebAuthn operations

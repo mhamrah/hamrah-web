@@ -295,12 +295,12 @@ function handleUnauthorized(event: RequestEventCommon): never {
 
   // Check if this is an API request vs. a web page request
   const isApiRequest = isApiCall(event);
-  
+
   if (isApiRequest) {
     // For API calls, return proper JSON 401 response
-    throw event.json(401, { 
+    throw event.json(401, {
       error: "Authentication required",
-      message: "Your session has expired. Please log in again."
+      message: "Your session has expired. Please log in again.",
     });
   } else {
     // For web requests, redirect to login page
@@ -313,29 +313,33 @@ function handleUnauthorized(event: RequestEventCommon): never {
  */
 function isApiCall(event: RequestEventCommon): boolean {
   const url = new URL(event.request.url);
-  
+
   // Check if the path starts with /api/
   if (url.pathname.startsWith("/api/")) {
     return true;
   }
-  
+
   // Check Accept header - API calls typically request JSON
   const acceptHeader = event.request.headers.get("Accept");
-  if (acceptHeader && acceptHeader.includes("application/json") && !acceptHeader.includes("text/html")) {
+  if (
+    acceptHeader &&
+    acceptHeader.includes("application/json") &&
+    !acceptHeader.includes("text/html")
+  ) {
     return true;
   }
-  
+
   // Check Content-Type header - API calls often send JSON
   const contentType = event.request.headers.get("Content-Type");
   if (contentType && contentType.includes("application/json")) {
     return true;
   }
-  
+
   // Check for Authorization header - indicates API usage
   if (event.request.headers.has("Authorization")) {
     return true;
   }
-  
+
   // Default to web request
   return false;
 }

@@ -63,9 +63,9 @@ export const onPost: RequestHandler = async (event) => {
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!sessionResult?.isValid || !sessionResult?.user) {
-      event.json(401, { 
+      event.json(401, {
         error: "Authentication required",
-        message: "Invalid or expired session"
+        message: "Invalid or expired session",
       });
       return;
     }

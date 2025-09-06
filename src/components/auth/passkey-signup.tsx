@@ -58,7 +58,10 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
         }
       } else {
         // If registration failed, check if it's because user already exists with passkeys
-        if (result.error?.includes("existing account") || result.error?.includes("already exists")) {
+        if (
+          result.error?.includes("existing account") ||
+          result.error?.includes("already exists")
+        ) {
           // User exists with passkeys - try authentication instead
           try {
             const authResult = await webauthnClient.authenticateWithPasskey({
@@ -166,7 +169,7 @@ export const PasskeySignup = component$<PasskeySignupProps>((props) => {
             placeholder="Enter your email"
             disabled={isLoading.value || !!props.email}
             readOnly={!!props.email}
-            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-gray-50 read-only:text-gray-600"
+            class="mt-1 block w-full rounded-md border-gray-300 px-3 py-2 shadow-sm read-only:bg-gray-50 read-only:text-gray-600 focus:border-purple-500 focus:ring-purple-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       </div>

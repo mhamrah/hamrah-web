@@ -34,7 +34,11 @@ export const onPost: RequestHandler = async (event) => {
     try {
       const userResponse = await internalApiClient.checkUserByEmail(email);
 
-      if (userResponse.success && userResponse.user_exists && userResponse.user) {
+      if (
+        userResponse.success &&
+        userResponse.user_exists &&
+        userResponse.user
+      ) {
         // User exists - check if they require OAuth verification first
         const user = userResponse.user;
         const hasOAuthMethod =
