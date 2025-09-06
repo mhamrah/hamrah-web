@@ -36,11 +36,11 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
   useVisibleTask$(async () => {
     if (WebAuthnClient.isSupported()) {
       console.log('🔐 Checking WebAuthn capabilities...');
-      
+
       const conditionalSupported =
         await WebAuthnClient.isConditionalMediationAvailable();
       hasConditionalUI.value = conditionalSupported;
-      
+
       // Actually check if passkeys are available for this domain
       if (conditionalSupported) {
         console.log('🔐 Conditional UI supported, checking for available passkeys...');
@@ -200,6 +200,22 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
 
   return (
     <div class="space-y-6">
+      {/* Hidden input for WebAuthn autofill/conditional UI */}
+      <input
+        type="text"
+        id="webauthn-autocomplete"
+        name="webauthn-autocomplete"
+        autoComplete="webauthn"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          width: "1px",
+          height: "1px",
+          opacity: 0,
+        }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       <div class="text-center">
         <h2 class="text-3xl font-bold text-gray-900">Welcome</h2>
         <p class="mt-2 text-gray-600">
