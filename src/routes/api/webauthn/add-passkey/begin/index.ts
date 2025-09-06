@@ -60,6 +60,10 @@ export const onPost: RequestHandler = async (event) => {
     }
 
     // Generate registration options
+    // NOTE: Credential ID storage strategy:
+    // We always persist credential IDs as base64url(rawId) where rawId is the ArrayBuffer returned by the authenticator.
+    // Do NOT re-encode the already base64url 'id' field as text, as that produces a different identifier and breaks lookup.
+    // See add-passkey/complete and register/complete handlers for the encoding logic.
     const options: GenerateRegistrationOptionsOpts = {
       rpName: RP_NAME,
       rpID: RP_ID,

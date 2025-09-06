@@ -130,7 +130,8 @@ export const onPost: RequestHandler = async (event) => {
     // Store the credential
     try {
       console.log("Storing credential for user:", user.id);
-      const credentialId = Buffer.from(credential.id).toString("base64url");
+      // Use rawId (ArrayBuffer) for stable base64url encoding. credential.id is already base64url; re-encoding that string changes the identifier.
+      const credentialId = Buffer.from(credential.rawId).toString("base64url");
       const credentialData = {
         id: credentialId,
         user_id: user.id,
