@@ -57,6 +57,7 @@ export function setSessionTokenCookie(event: RequestEventCommon, token: string, 
     httpOnly: true,
     secure: true,
     path: "/",
+    domain: ".hamrah.app",  // Share cookie with api.hamrah.app subdomain
   });
 }
 
