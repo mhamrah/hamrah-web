@@ -28,11 +28,11 @@ export const onPost: RequestHandler = async (event) => {
     const internalApiClient = createInternalApiClient(event);
 
     // Extract credential ID from the authentication response
-    // rawId is an ArrayBuffer, convert it to base64url string for database lookup
-    const credentialId = Buffer.from(authResponse.rawId).toString("base64url");
+    // With @simplewebauthn/browser, the id is already a base64url string
+    const credentialId = authResponse.id;
 
     console.log('🔐 Looking up credential ID:', credentialId);
-    console.log('🔐 Raw ID buffer length:', authResponse.rawId.byteLength);
+    console.log('🔐 Credential ID length:', credentialId.length);
 
     // Find the credential in our database
     const credentialResponse = await apiClient.get(
@@ -53,7 +53,7 @@ export const onPost: RequestHandler = async (event) => {
 
     // Get the challenge - either from challengeId or extract from client data
     let expectedChallenge: string;
-    
+
     if (challengeId) {
       // Use provided challenge ID to get the stored challenge
       const challengeResponse = await apiClient.get(
@@ -84,10 +84,7 @@ export const onPost: RequestHandler = async (event) => {
       // Extract challenge from client data for backward compatibility
       try {
         const clientDataJSON = JSON.parse(
-          Buffer.from(
-            authResponse.response.clientDataJSON,
-            "base64url",
-          ).toString(),
+          authResponse.response.clientDataJSON,
         );
         expectedChallenge = clientDataJSON.challenge;
       } catch {
