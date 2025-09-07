@@ -7,35 +7,43 @@ import { getWebAuthnConfig } from "~/lib/webauthn/config";
 import { createApiClient } from "~/lib/auth/api-client";
 
 /**
- * Complete WebAuthn (passkey) registration.
+ * Complete WebAuthn (passkey) registration for an authenticated user.
  *
  * Request JSON:
  * {
  *   challengeId: string;
  *   response: RegistrationResponseJSON;
- *   label?: string;     // optional device label chosen by user
- *   flowId?: string;    // optional correlation id
+ *   label?: string;
+ *   flowId?: string;
  * }
  *
- * Response JSON (success):
+ * Success:
  * {
  *   success: true;
  *   credentialId: string;
  * }
  *
- * Response JSON (error):
+ * Failure:
  * {
  *   success: false;
  *   error: string;
  * }
+ *
+ * Key changes (refactor):
+ * - Canonical credential ID is now taken from client `response.id` (already base64url).
+ * - `registrationInfo.credentialID` is used only as a cross-check.
+ * - Robust normalization helpers added to prevent empty/incorrect IDs.
+ * - Explicit guard rejects empty credential IDs before persistence.
  */
 export const onPost: RequestHandler = async (event) => {
   const startTs = Date.now();
-  let bodyText = "";
+
+  // Parse body
   let body: any = {};
+  let rawBody = "";
   try {
-    bodyText = await event.request.text();
-    body = JSON.parse(bodyText || "{}");
+    rawBody = await event.request.text();
+    body = JSON.parse(rawBody || "{}");
   } catch {
     body = {};
   }
@@ -47,7 +55,7 @@ export const onPost: RequestHandler = async (event) => {
       : Math.random().toString(36).slice(2));
 
   const challengeId: string | undefined = body.challengeId;
-  const attestationResponse = body.response;
+  const attestationResponse: any = body.response;
   const label: string | undefined = body.label;
 
   console.log("🧩 WEBAUTHN/REG_VERIFY: Incoming request", {
@@ -56,6 +64,7 @@ export const onPost: RequestHandler = async (event) => {
     hasResponse: !!attestationResponse,
     labelProvided: !!label,
     rawKeys: Object.keys(body || {}),
+    rawBodyLength: rawBody.length,
   });
 
   if (!challengeId || !attestationResponse) {
@@ -117,7 +126,6 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // (Optional) Expiration check
     if (challengeRecord.expires_at && Date.now() > challengeRecord.expires_at) {
       event.json(400, {
         success: false,
@@ -168,36 +176,48 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Normalize registrationInfo across simplewebauthn versions
+    // 3. Canonical credential ID normalization
     const regInfo: any = verification.registrationInfo;
-    const credentialIDBuf =
+
+    // Client-provided id (already base64url from @simplewebauthn/browser JSON)
+    const clientId: string | undefined = attestationResponse?.id;
+
+    // Library-provided raw credential ID (Uint8Array in v11)
+    const regInfoCredentialId: Uint8Array | ArrayBuffer | string | undefined =
       regInfo?.credentialID ||
       regInfo?.credentialIDBuffer ||
       regInfo?.credential?.id;
-    const credentialPublicKeyBuf =
+
+    const regInfoPublicKey: Uint8Array | ArrayBuffer | string | undefined =
       regInfo?.credentialPublicKey ||
       regInfo?.credential?.publicKey ||
       regInfo?.publicKey;
+
     const counter =
       regInfo?.counter ??
       regInfo?.credential?.counter ??
       0;
+
     const aaguidRaw =
       regInfo?.aaguid ||
       regInfo?.credential?.aaguid;
+
     const credentialType =
       regInfo?.credentialType ||
       regInfo?.credential?.credentialType ||
       "public-key";
+
     const userVerified =
       !!(regInfo?.userVerified ?? regInfo?.credential?.userVerified);
+
     const credentialDeviceType =
       regInfo?.credentialDeviceType ||
       regInfo?.credential?.credentialDeviceType;
+
     const credentialBackedUp =
       !!(regInfo?.credentialBackedUp ?? regInfo?.credential?.credentialBackedUp);
 
-    if (!credentialIDBuf || !credentialPublicKeyBuf) {
+    if (!regInfoCredentialId || !regInfoPublicKey) {
       event.json(400, {
         success: false,
         error: "Incomplete credential data",
@@ -205,36 +225,51 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    const storedCredentialId = bufferToBase64Url(credentialIDBuf);
+    const canonicalFromRegInfo = normalizeToBase64Url(regInfoCredentialId);
+    const storedCredentialId = clientId
+      ? normalizeToBase64Url(clientId)
+      : canonicalFromRegInfo;
 
-    // (Removed redundant defensive check using old variable names credentialID / credentialPublicKey)
-
-    // Ensure returned credential id matches response.id (after potential encoding differences)
-    try {
-      const responseId = attestationResponse.id;
-      if (responseId && responseId !== storedCredentialId && responseId !== credentialIdToFallback(responseId)) {
-        console.log("🧩 WEBAUTHN/REG_VERIFY: Credential ID mismatch (non-fatal)", {
-          flowId,
-          responseId,
-          storedCredentialId,
-        });
-      }
-    } catch {
-      // Ignore mismatch logging failures
+    if (!storedCredentialId) {
+      console.warn("🧩 WEBAUTHN/REG_VERIFY: Empty credential ID after normalization", {
+        flowId,
+        clientIdPresent: !!clientId,
+        regInfoType: typeOfInput(regInfoCredentialId),
+        regInfoLen: toUint8Array(regInfoCredentialId).byteLength,
+      });
+      event.json(400, {
+        success: false,
+        error: "Empty credential ID after normalization",
+      });
+      return;
     }
 
-    // 3. Persist credential in API service
+    if (storedCredentialId !== canonicalFromRegInfo) {
+      console.log("🧩 WEBAUTHN/REG_VERIFY: ID normalization mismatch (non-fatal)", {
+        flowId,
+        clientId,
+        regInfoId: canonicalFromRegInfo,
+        chosen: storedCredentialId,
+      });
+    }
+
+    const publicKeyBytes = toUint8Array(regInfoPublicKey);
+
+    // 4. Persist credential
     const persistStart = Date.now();
     try {
       await apiClient.post("/api/webauthn/credentials", {
         id: storedCredentialId,
         user_id: userId,
-        public_key: Array.from(new Uint8Array(credentialPublicKeyBuf)),
+        public_key: Array.from(publicKeyBytes),
         counter,
         transports: attestationResponse?.response?.transports || undefined,
-        aaguid: aaguidRaw && aaguidRaw instanceof ArrayBuffer
-          ? Array.from(new Uint8Array(aaguidRaw))
-          : undefined,
+        aaguid:
+          aaguidRaw instanceof Uint8Array
+            ? Array.from(aaguidRaw)
+            : aaguidRaw instanceof ArrayBuffer
+              ? Array.from(new Uint8Array(aaguidRaw))
+              : undefined,
         credential_type: credentialType,
         user_verified: userVerified,
         credential_device_type: credentialDeviceType,
@@ -258,14 +293,14 @@ export const onPost: RequestHandler = async (event) => {
     }
     const persistEnd = Date.now();
 
-    // 4. Optionally delete challenge (best practice to prevent replay)
+    // 5. Clean up challenge (best effort)
     try {
       await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
-    } catch (e) {
+    } catch (e: any) {
       console.warn("🧩 WEBAUTHN/REG_VERIFY: Failed to delete challenge (non-fatal)", {
         flowId,
         challengeId,
-        message: (e as any)?.message,
+        message: e?.message,
       });
     }
 
@@ -297,11 +332,50 @@ export const onPost: RequestHandler = async (event) => {
   }
 };
 
+/* -------------------------------------------------------------------------- */
+/* Helper utilities for normalization                                         */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Convert ArrayBuffer to base64url string.
+ * Convert various possible forms (Uint8Array | ArrayBuffer | base64/base64url string)
+ * into a Uint8Array.
  */
-function bufferToBase64Url(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
+function toUint8Array(input: Uint8Array | ArrayBuffer | string): Uint8Array {
+  if (input instanceof Uint8Array) return input;
+  if (input instanceof ArrayBuffer) return new Uint8Array(input);
+  if (typeof input === "string") {
+    const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+    // Pad if necessary
+    const padLen = normalized.length % 4;
+    const padded =
+      padLen === 2
+        ? normalized + "=="
+        : padLen === 3
+          ? normalized + "="
+          : normalized;
+    try {
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    } catch {
+      // Fallback: treat as UTF-8 text
+      const utf8 = new TextEncoder().encode(input);
+      return utf8;
+    }
+  }
+  // Last resort empty
+  return new Uint8Array();
+}
+
+/**
+ * Normalize any credential ID representation into a canonical base64url string.
+ */
+function normalizeToBase64Url(input: Uint8Array | ArrayBuffer | string): string {
+  const bytes = toUint8Array(input);
+  if (bytes.byteLength === 0) return "";
   let binary = "";
   for (let i = 0; i < bytes.byteLength; i++) {
     binary += String.fromCharCode(bytes[i]);
@@ -310,12 +384,10 @@ function bufferToBase64Url(buf: ArrayBuffer): string {
   return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-/**
- * Fallback attempt to normalize credential ID forms (placeholder for future heuristics).
- */
-function credentialIdToFallback(id: string): string {
-  // Could add additional normalizations if needed.
-  return id;
+function typeOfInput(input: any): string {
+  if (input instanceof Uint8Array) return "Uint8Array";
+  if (input instanceof ArrayBuffer) return "ArrayBuffer";
+  return typeof input;
 }
 
 /**

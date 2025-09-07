@@ -45,22 +45,24 @@ export const onPost: RequestHandler = async (event) => {
     const apiClient = createApiClient(event);
     const internalApiClient = createInternalApiClient(event);
 
-    // Extract & normalize credential ID from the authentication response
-    let credentialId: string;
-    try {
-      if (authResponse.rawId) {
-        credentialId = Buffer.from(authResponse.rawId).toString("base64url");
-      } else {
-        credentialId = authResponse.id;
-      }
-    } catch {
-      credentialId = authResponse.id;
+    // Extract canonical credential ID (SimpleWebAuthn JSON already base64url)
+    const credentialId: string | undefined = authResponse?.id;
+    if (!credentialId) {
+      event.json(400, { success: false, error: "Missing credential id" });
+      return;
+    }
+    if (authResponse.rawId && authResponse.rawId !== credentialId) {
+      console.log("✅ WEBAUTHN/VERIFY: rawId differs from id (non-fatal)", {
+        id: credentialId,
+        rawId: authResponse.rawId,
+      });
     }
 
     console.log("✅ WEBAUTHN/VERIFY: Credential identification", {
       derivedCredentialId: credentialId,
       originalId: authResponse.id,
       hasRawId: !!authResponse.rawId,
+      rawIdSame: authResponse.rawId === authResponse.id,
       rawIdLength: authResponse.rawId?.length,
     });
 
@@ -79,38 +81,13 @@ export const onPost: RequestHandler = async (event) => {
       return result;
     };
 
-    // Primary lookup
-    let credentialResponse = await fetchCredential(credentialId, "primary");
+    // Single canonical lookup (no double-encoding fallbacks)
+    const credentialResponse = await fetchCredential(credentialId, "primary");
 
-    // Fallbacks if not found
     if (!credentialResponse.success || !credentialResponse.credential) {
-      console.log("✅ WEBAUTHN/VERIFY: Primary lookup failed; attempting fallbacks");
-      const fallbackIds: string[] = [];
-
-      if (authResponse.id && authResponse.id !== credentialId) {
-        fallbackIds.push(authResponse.id);
-      }
-
-      try {
-        const doubleEncoded = Buffer.from(authResponse.id || credentialId).toString("base64url");
-        if (!fallbackIds.includes(doubleEncoded)) {
-          fallbackIds.push(doubleEncoded);
-        }
-      } catch {
-        /* ignore */
-      }
-
-      console.log("✅ WEBAUTHN/VERIFY: Fallback candidates", { fallbackIds });
-
-      for (const fid of fallbackIds) {
-        const attempt = await fetchCredential(fid, "fallback");
-        if (attempt.success && attempt.credential) {
-          console.log("✅ WEBAUTHN/VERIFY: Fallback succeeded", { chosenId: fid });
-          credentialId = fid;
-          credentialResponse = attempt;
-          break;
-        }
-      }
+      console.log("✅ WEBAUTHN/VERIFY: Credential not found (no fallbacks)");
+      event.json(404, { success: false, error: "Credential not found" });
+      return;
     }
 
     console.log("✅ WEBAUTHN/VERIFY: Final credential lookup summary", {
@@ -118,15 +95,6 @@ export const onPost: RequestHandler = async (event) => {
       success: credentialResponse.success,
       hasCredential: !!credentialResponse.credential,
     });
-
-    if (!credentialResponse.success || !credentialResponse.credential) {
-      console.log("✅ WEBAUTHN/VERIFY: Credential not found after fallbacks");
-      event.json(404, {
-        success: false,
-        error: "Credential not found",
-      });
-      return;
-    }
 
     const credential = credentialResponse.credential;
 
