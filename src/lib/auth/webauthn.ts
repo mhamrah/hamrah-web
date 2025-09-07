@@ -348,6 +348,8 @@ export async function authenticateWithDiscoverablePasskey(): Promise<PasskeyAuth
       }),
     }).then(async (res) => {
       const txt = await res.text();
+      console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE verify-response-received', txt)
+
       let parsed;
       try { parsed = JSON.parse(txt); } catch { parsed = { parseError: true, raw: txt }; }
       return parsed;
