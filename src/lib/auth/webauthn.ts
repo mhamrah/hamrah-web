@@ -120,37 +120,87 @@ export async function authenticateWithDiscoverablePasskey(): Promise<PasskeyAuth
   }
 
   try {
-    console.log('🔐 (Discoverable) Starting explicit passkey authentication...');
+    const flowId = (globalThis as any).crypto?.randomUUID
+      ? (globalThis as any).crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+    const startTs = Date.now();
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_START', {
+      flowId,
+      startTs,
+      mode: 'discoverable-explicit',
+      phase: 'begin-request',
+    });
 
-    // 1. Request discoverable challenge (server returns options without allowCredentials)
+    const beginFetchStart = Date.now();
     const beginResponse: any = await fetch('/api/webauthn/authenticate/discoverable', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify({ explicit: true }),
-    }).then((res) => res.json());
+      body: JSON.stringify({ explicit: true, flowId, ts: beginFetchStart }),
+    }).then(async (res) => {
+      const text = await res.text();
+      let json: any;
+      try { json = JSON.parse(text); } catch { json = { parseError: true, raw: text }; }
+      return json;
+    });
+    const beginFetchEnd = Date.now();
 
     if (!beginResponse.success || !beginResponse.options) {
-      console.error('🔐 (Discoverable) Failed to get challenge:', beginResponse);
+      console.error('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_ERROR begin-response-invalid', {
+        flowId,
+        durationMs: beginFetchEnd - beginFetchStart,
+        beginResponse,
+      });
+      const authEnd = Date.now();
       return {
         success: false,
         error: beginResponse.error || 'Failed to begin authentication',
       };
     }
 
-    console.log('🔐 (Discoverable) Got challenge, invoking authenticator...');
-    console.log('🔐 (Discoverable) Options:', beginResponse.options);
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE begin-response', {
+      flowId,
+      durationMs: beginFetchEnd - beginFetchStart,
+      rpId: beginResponse.options?.rpId,
+      challengeId: beginResponse.options?.challengeId,
+      challengeLength: beginResponse.options?.challenge?.length,
+      userVerification: beginResponse.options?.userVerification,
+      allowCredentialsCount: beginResponse.options?.allowCredentials?.length || 0,
+      rawKeys: Object.keys(beginResponse.options || {}),
+    });
+
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE invoking-authenticator', {
+      flowId,
+      phase: 'authenticator-get',
+    });
+
+    console.log('🔐 (Discoverable) Got challenge, invoking authenticator...'); // retained legacy log
+    console.log('🔐 (Discoverable) Options:', beginResponse.options); // retained
 
     // 2. Invoke authenticator WITHOUT conditional/autofill mode
+    const authStart = Date.now();
     const authResponse = await startAuthentication({
       optionsJSON: beginResponse.options,
       // Explicitly disable browser autofill/conditional to force prompt
       useBrowserAutofill: false,
     });
+    const authEnd = Date.now();
 
-    console.log('🔐 (Discoverable) Authentication response:', authResponse);
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE authenticator-response', {
+      flowId,
+      durationMs: authEnd - authStart,
+      credentialId: authResponse?.id,
+      hasRawId: !!authResponse?.rawId,
+      rawIdLength: authResponse?.rawId?.length,
+      clientDataJSONLength: authResponse?.response?.clientDataJSON?.length,
+      authenticatorDataLength: authResponse?.response?.authenticatorData?.length,
+      signatureLength: authResponse?.response?.signature?.length,
+      userHandlePresent: !!authResponse?.response?.userHandle,
+      type: authResponse?.type,
+    });
+    console.log('🔐 (Discoverable) Authentication response:', authResponse); // legacy
 
     if (!authResponse) {
       return {
@@ -159,7 +209,14 @@ export async function authenticateWithDiscoverablePasskey(): Promise<PasskeyAuth
       };
     }
 
-    console.log('🔐 (Discoverable) Sending assertion to backend...');
+    const verifySendStart = Date.now();
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE sending-assertion', {
+      flowId,
+      challengeId: beginResponse.options.challengeId,
+      credentialId: authResponse.id,
+      phase: 'verify-request',
+    });
+    console.log('🔐 (Discoverable) Sending assertion to backend...'); // legacy
 
     // 3. Send to backend for verification (reuse conditional endpoint logic)
     const completeResponse: any = await fetch('/api/webauthn/authenticate/discoverable/verify', {
@@ -173,9 +230,25 @@ export async function authenticateWithDiscoverablePasskey(): Promise<PasskeyAuth
         response: authResponse,
         mode: 'discoverable-explicit',
       }),
-    }).then((res) => res.json());
+    }).then(async (res) => {
+      const txt = await res.text();
+      let parsed;
+      try { parsed = JSON.parse(txt); } catch { parsed = { parseError: true, raw: txt }; }
+      return parsed;
+    });
+    const verifySendEnd = Date.now();
 
-    console.log('🔐 (Discoverable) Backend verification response:', completeResponse);
+    console.log('🧩 WEBAUTHN/CLIENT: AUTH_FLOW_PHASE verify-response', {
+      flowId,
+      durationMs: verifySendEnd - verifySendStart,
+      overallDurationMs: verifySendEnd - startTs,
+      success: completeResponse?.success,
+      hasUser: !!completeResponse?.user,
+      sessionTokenPresent: !!completeResponse?.session_token,
+      error: completeResponse?.error,
+      keys: completeResponse ? Object.keys(completeResponse) : [],
+    });
+    console.log('🔐 (Discoverable) Backend verification response:', completeResponse); // legacy
 
     if (!completeResponse.success) {
       return {

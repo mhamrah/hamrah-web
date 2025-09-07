@@ -8,14 +8,32 @@ import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 import { getWebAuthnConfig } from "~/lib/webauthn/config";
 
 export const onPost: RequestHandler = async (event) => {
+  const startTs = Date.now();
   try {
-    const body = (await event.request.json()) as {
+    const rawBodyText = await event.request.clone().text();
+    let body: { response: any; challengeId?: string } | undefined;
+    try {
+      body = JSON.parse(rawBodyText || "{}");
+    } catch {
+      body = undefined;
+    }
+
+    console.log("✅ WEBAUTHN/VERIFY: Incoming request", {
+      ts: startTs,
+      rawBodyLength: rawBodyText.length,
+      hasBody: !!body,
+      keys: body ? Object.keys(body) : [],
+      ip: event.request.headers.get("x-forwarded-for") || null,
+      ua: (event.request.headers.get("user-agent") || "").slice(0, 160),
+    });
+
+    const { response: authResponse, challengeId } = (body || {}) as {
       response: any;
       challengeId?: string;
     };
-    const { response: authResponse, challengeId } = body;
 
     if (!authResponse) {
+      console.log("✅ WEBAUTHN/VERIFY: Missing authentication response");
       event.json(400, {
         success: false,
         error: "Missing authentication response",
@@ -28,8 +46,6 @@ export const onPost: RequestHandler = async (event) => {
     const internalApiClient = createInternalApiClient(event);
 
     // Extract & normalize credential ID from the authentication response
-    // We prefer rawId (ArrayBuffer) -> base64url for stable storage/lookup.
-    // Some earlier code paths may have double-encoded credential.id; we add fallback later.
     let credentialId: string;
     try {
       if (authResponse.rawId) {
@@ -41,30 +57,40 @@ export const onPost: RequestHandler = async (event) => {
       credentialId = authResponse.id;
     }
 
-    console.log('🔐 Looking up credential ID:', credentialId);
-    console.log('🔐 Credential ID length:', credentialId.length);
+    console.log("✅ WEBAUTHN/VERIFY: Credential identification", {
+      derivedCredentialId: credentialId,
+      originalId: authResponse.id,
+      hasRawId: !!authResponse.rawId,
+      rawIdLength: authResponse.rawId?.length,
+    });
 
     // Helper to attempt credential fetch by id
-    const fetchCredential = async (id: string) => {
-      return await apiClient.get(`/api/webauthn/credentials/${id}`);
+    const fetchCredential = async (id: string, phase: string) => {
+      const t0 = Date.now();
+      const result = await apiClient.get(`/api/webauthn/credentials/${id}`);
+      const t1 = Date.now();
+      console.log("✅ WEBAUTHN/VERIFY: fetchCredential result", {
+        phase,
+        credentialId: id,
+        success: result.success,
+        hasCredential: !!result.credential,
+        durationMs: t1 - t0,
+      });
+      return result;
     };
 
     // Primary lookup
-    let credentialResponse = await fetchCredential(credentialId);
-    console.log('🔐 Primary credential lookup response:', credentialResponse);
+    let credentialResponse = await fetchCredential(credentialId, "primary");
 
     // Fallbacks if not found
     if (!credentialResponse.success || !credentialResponse.credential) {
-      console.log("🔐 Primary credential lookup failed, attempting fallbacks...");
-
+      console.log("✅ WEBAUTHN/VERIFY: Primary lookup failed; attempting fallbacks");
       const fallbackIds: string[] = [];
 
-      // 1. Raw authResponse.id (already base64url) if different from normalized
       if (authResponse.id && authResponse.id !== credentialId) {
         fallbackIds.push(authResponse.id);
       }
 
-      // 2. Possible legacy double-encoded form: base64url(utf8(credentialId))
       try {
         const doubleEncoded = Buffer.from(authResponse.id || credentialId).toString("base64url");
         if (!fallbackIds.includes(doubleEncoded)) {
@@ -74,11 +100,12 @@ export const onPost: RequestHandler = async (event) => {
         /* ignore */
       }
 
+      console.log("✅ WEBAUTHN/VERIFY: Fallback candidates", { fallbackIds });
+
       for (const fid of fallbackIds) {
-        console.log("🔐 Trying fallback credential ID:", fid);
-        const attempt = await fetchCredential(fid);
+        const attempt = await fetchCredential(fid, "fallback");
         if (attempt.success && attempt.credential) {
-          console.log("🔐 Fallback credential lookup succeeded with ID:", fid);
+          console.log("✅ WEBAUTHN/VERIFY: Fallback succeeded", { chosenId: fid });
           credentialId = fid;
           credentialResponse = attempt;
           break;
@@ -86,9 +113,14 @@ export const onPost: RequestHandler = async (event) => {
       }
     }
 
-    console.log('🔐 Final credential lookup response:', credentialResponse);
+    console.log("✅ WEBAUTHN/VERIFY: Final credential lookup summary", {
+      finalCredentialId: credentialId,
+      success: credentialResponse.success,
+      hasCredential: !!credentialResponse.credential,
+    });
 
     if (!credentialResponse.success || !credentialResponse.credential) {
+      console.log("✅ WEBAUTHN/VERIFY: Credential not found after fallbacks");
       event.json(404, {
         success: false,
         error: "Credential not found",
@@ -98,14 +130,19 @@ export const onPost: RequestHandler = async (event) => {
 
     const credential = credentialResponse.credential;
 
-    // Get the challenge - either from challengeId or extract from client data
+    // Get the challenge
     let expectedChallenge: string;
-
     if (challengeId) {
-      // Use provided challenge ID to get the stored challenge
-      const challengeResponse = await apiClient.get(
-        `/api/webauthn/challenges/${challengeId}`,
-      );
+      console.log("✅ WEBAUTHN/VERIFY: Fetching stored challenge", { challengeId });
+      const challengeFetchStart = Date.now();
+      const challengeResponse = await apiClient.get(`/api/webauthn/challenges/${challengeId}`);
+      const challengeFetchEnd = Date.now();
+      console.log("✅ WEBAUTHN/VERIFY: Challenge fetch result", {
+        challengeId,
+        success: challengeResponse.success,
+        hasChallenge: !!challengeResponse.challenge,
+        durationMs: challengeFetchEnd - challengeFetchStart,
+      });
 
       if (!challengeResponse.success || !challengeResponse.challenge) {
         event.json(400, {
@@ -117,8 +154,12 @@ export const onPost: RequestHandler = async (event) => {
 
       const challenge = challengeResponse.challenge;
 
-      // Check if challenge has expired
       if (challenge.expires_at < Date.now()) {
+        console.log("✅ WEBAUTHN/VERIFY: Challenge expired", {
+          challengeId,
+          expiresAt: challenge.expires_at,
+          now: Date.now(),
+        });
         event.json(400, {
           success: false,
           error: "Challenge expired",
@@ -128,13 +169,14 @@ export const onPost: RequestHandler = async (event) => {
 
       expectedChallenge = challenge.challenge;
     } else {
-      // Extract challenge from client data for backward compatibility
+      console.log("✅ WEBAUTHN/VERIFY: Extracting challenge from clientDataJSON");
       try {
-        const clientDataJSON = JSON.parse(
-          authResponse.response.clientDataJSON,
-        );
+        const clientDataJSON = JSON.parse(authResponse.response.clientDataJSON);
         expectedChallenge = clientDataJSON.challenge;
-      } catch {
+      } catch (e) {
+        console.log("✅ WEBAUTHN/VERIFY: Failed to parse clientDataJSON", {
+          error: (e as any)?.message,
+        });
         event.json(400, {
           success: false,
           error: "Invalid client data or missing challenge",
@@ -143,26 +185,40 @@ export const onPost: RequestHandler = async (event) => {
       }
     }
 
-    // Verify authentication response
+    console.log("✅ WEBAUTHN/VERIFY: Prepared verification payload summary", {
+      expectedRPID: RP_ID,
+      expectedOrigin: EXPECTED_ORIGIN,
+      expectedChallengeLength: expectedChallenge.length,
+      credentialCounter: credential.counter,
+      transports: credential.transports ? credential.transports : null,
+    });
+
     const verification: VerifyAuthenticationResponseOpts = {
       response: authResponse,
-      expectedChallenge: expectedChallenge,
+      expectedChallenge,
       expectedOrigin: EXPECTED_ORIGIN,
       expectedRPID: RP_ID,
       credential: {
         id: credential.id,
         publicKey: new Uint8Array(Buffer.from(credential.public_key, "base64")),
         counter: credential.counter,
-        transports: credential.transports
-          ? JSON.parse(credential.transports)
-          : [],
+        transports: credential.transports ? JSON.parse(credential.transports) : [],
       },
       requireUserVerification: true,
     };
 
+    const verifyStart = Date.now();
     const verificationResult = await verifyAuthenticationResponse(verification);
+    const verifyEnd = Date.now();
+    console.log("✅ WEBAUTHN/VERIFY: Verification result", {
+      verified: verificationResult.verified,
+      newCounter: verificationResult.authenticationInfo?.newCounter,
+      userVerified: verificationResult.authenticationInfo?.userVerified,
+      durationMs: verifyEnd - verifyStart,
+    });
 
     if (!verificationResult.verified) {
+      console.log("✅ WEBAUTHN/VERIFY: Verification failed");
       event.json(400, {
         success: false,
         error: "Authentication verification failed",
@@ -170,19 +226,26 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Update credential counter
-    await apiClient.patch(
-      `/api/webauthn/credentials/${credential.id}/counter`,
-      {
-        counter: verificationResult.authenticationInfo.newCounter,
-        last_used: Date.now(),
-      },
-    );
+    const counterUpdateStart = Date.now();
+    await apiClient.patch(`/api/webauthn/credentials/${credential.id}/counter`, {
+      counter: verificationResult.authenticationInfo.newCounter,
+      last_used: Date.now(),
+    });
+    const counterUpdateEnd = Date.now();
+    console.log("✅ WEBAUTHN/VERIFY: Counter updated", {
+      credentialId: credential.id,
+      newCounter: verificationResult.authenticationInfo.newCounter,
+      durationMs: counterUpdateEnd - counterUpdateStart,
+    });
 
-    // Get user information using the credential's user_id
-    const userResponse = await internalApiClient.get(
-      `/api/internal/users/${credential.user_id}`,
-    );
+    const userFetchStart = Date.now();
+    const userResponse = await internalApiClient.get(`/api/internal/users/${credential.user_id}`);
+    const userFetchEnd = Date.now();
+    console.log("✅ WEBAUTHN/VERIFY: User fetch result", {
+      userId: credential.user_id,
+      success: !!userResponse?.user,
+      durationMs: userFetchEnd - userFetchStart,
+    });
 
     if (!userResponse || !userResponse.user) {
       event.json(500, {
@@ -192,10 +255,16 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Create session for the user
+    const sessionStart = Date.now();
     const sessionResponse = await internalApiClient.createSession({
       user_id: userResponse.user.id,
       platform: "web",
+    });
+    const sessionEnd = Date.now();
+    console.log("✅ WEBAUTHN/VERIFY: Session creation result", {
+      success: sessionResponse.success,
+      tokenPresent: !!sessionResponse.access_token,
+      durationMs: sessionEnd - sessionStart,
     });
 
     if (!sessionResponse.success || !sessionResponse.access_token) {
@@ -206,10 +275,22 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    // Clean up challenge if it was provided
     if (challengeId) {
+      const cleanupStart = Date.now();
       await apiClient.delete(`/api/webauthn/challenges/${challengeId}`);
+      const cleanupEnd = Date.now();
+      console.log("✅ WEBAUTHN/VERIFY: Challenge cleanup", {
+        challengeId,
+        durationMs: cleanupEnd - cleanupStart,
+      });
     }
+
+    const endTs = Date.now();
+    console.log("✅ WEBAUTHN/VERIFY: SUCCESS", {
+      totalDurationMs: endTs - startTs,
+      userId: userResponse.user.id,
+      credentialId,
+    });
 
     event.json(200, {
       success: true,
@@ -218,7 +299,13 @@ export const onPost: RequestHandler = async (event) => {
       session_token: sessionResponse.access_token,
     });
   } catch (error) {
-    console.error("WebAuthn conditional authentication error:", error);
+    const endTs = Date.now();
+    console.error("✅ WEBAUTHN/VERIFY: ERROR", {
+      totalDurationMs: endTs - startTs,
+      name: (error as any)?.name,
+      message: (error as any)?.message,
+      stack: (error as any)?.stack,
+    });
     event.json(500, {
       success: false,
       error: "Failed to complete authentication",

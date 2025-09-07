@@ -8,6 +8,21 @@ import { getWebAuthnConfig } from "~/lib/webauthn/config";
 
 export const onPost: RequestHandler = async (event) => {
   try {
+    const startTs = Date.now();
+    let incoming: any = {};
+    try {
+      incoming = await event.request.clone().json();
+    } catch {
+      // no body or invalid JSON
+    }
+    console.log("🚪 WEBAUTHN/BEGIN: Incoming discoverable auth begin", {
+      ts: startTs,
+      hasBody: Object.keys(incoming || {}).length > 0,
+      explicitFlag: incoming?.explicit,
+      ip: event.request.headers.get("x-forwarded-for") || null,
+      ua: (event.request.headers.get("user-agent") || "").slice(0, 160),
+    });
+
     const { RP_ID } = getWebAuthnConfig();
     const apiClient = createApiClient(event);
 
@@ -20,10 +35,31 @@ export const onPost: RequestHandler = async (event) => {
       rpID: RP_ID,
     };
 
+    console.log("🚪 WEBAUTHN/BEGIN: Generating authentication options", {
+      rpID: RP_ID,
+      timeout: options.timeout,
+      userVerification: options.userVerification,
+      allowCredentialsCount: options.allowCredentials?.length || 0,
+    });
+    const authGenStart = Date.now();
     const authenticationOptions = await generateAuthenticationOptions(options);
+    const authGenEnd = Date.now();
+    console.log("🚪 WEBAUTHN/BEGIN: Generated authentication options", {
+      durationMs: authGenEnd - authGenStart,
+      challengeLength: authenticationOptions.challenge.length,
+      rpId: authenticationOptions.rpId,
+      userVerification: authenticationOptions.userVerification,
+      timeout: authenticationOptions.timeout,
+    });
 
     // Store challenge for verification
     const challengeId = crypto.randomUUID();
+    const challengeStoreStart = Date.now();
+    console.log("🚪 WEBAUTHN/BEGIN: Storing challenge", {
+      challengeId,
+      challengeLength: authenticationOptions.challenge.length,
+      expiresInMs: 5 * 60 * 1000,
+    });
     await apiClient.post("/api/webauthn/challenges", {
       id: challengeId,
       challenge: authenticationOptions.challenge,
@@ -31,8 +67,20 @@ export const onPost: RequestHandler = async (event) => {
       challenge_type: "discoverable_authentication",
       expires_at: Date.now() + 5 * 60 * 1000, // 5 minutes from now
     });
+    const challengeStoreEnd = Date.now();
+    console.log("🚪 WEBAUTHN/BEGIN: Challenge stored", {
+      challengeId,
+      storeDurationMs: challengeStoreEnd - challengeStoreStart,
+    });
 
     // Return authentication options
+    const totalEnd = Date.now();
+    console.log("🚪 WEBAUTHN/BEGIN: Sending response", {
+      challengeId,
+      totalDurationMs: totalEnd - startTs,
+      rpId: authenticationOptions.rpId,
+      challengeLength: authenticationOptions.challenge.length,
+    });
     event.json(200, {
       success: true,
       options: {
@@ -45,7 +93,11 @@ export const onPost: RequestHandler = async (event) => {
       },
     });
   } catch (error) {
-    console.error("WebAuthn discoverable authentication begin error:", error);
+    console.error("🚪 WEBAUTHN/BEGIN: ERROR during discoverable auth begin", {
+      message: (error as any)?.message,
+      name: (error as any)?.name,
+      stack: (error as any)?.stack,
+    });
     event.json(500, {
       success: false,
       error: "Failed to begin discoverable authentication",
