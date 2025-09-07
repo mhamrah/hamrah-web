@@ -1,7 +1,7 @@
 // WebAuthn client implementation using @simplewebauthn/browser
 // Handles passkey registration and authentication flows
 
-import { startAuthentication } from '@simplewebauthn/browser';
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { createApiClient } from './api-client';
 
 // Types for our WebAuthn implementation
@@ -48,16 +48,16 @@ export class WebAuthnClient {
 
 
 
-  // NOTE: User existence checking has been removed for security reasons.
-  // The auth flow now attempts both register and authenticate without revealing user existence.
+  // NOTE: User existence checking remains disabled to avoid user enumeration.
+  // We support explicit discoverable authentication and (re‑introduced) passkey registration
+  // for an already authenticated user from the Settings page.
 
-  // (Removed registerPasskey - registration flow deprecated)
+  // Removed flows (still deprecated):
+  // - Conditional UI mediation
+  // - Legacy email-scoped authenticateWithPasskey
 
-  // (Removed: authenticateWithConditionalUI deprecated in favor of explicit discoverable flow)
-
-  // (Removed authenticateWithPasskey - email-scoped auth deprecated)
-
-  // (Removed addPasskey - multi-passkey management deprecated in this phase)
+  // Added back:
+  // - addPasskey(): user-attached registration using platform authenticator
 
   // Get user's passkeys
   async getUserPasskeys(userId: string): Promise<WebAuthnCredential[]> {
@@ -88,6 +88,122 @@ export class WebAuthnClient {
       return response.success;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Register (add) a new passkey for the currently authenticated user.
+   * Expects server routes:
+   *   POST /api/webauthn/register/begin   -> { success, options, challengeId }
+   *   POST /api/webauthn/register/verify  -> { success, credentialId, error? }
+   *
+   * The API service persistence is performed server-side after successful verification.
+   */
+  async addPasskey(
+    user: { id: string; email: string; name?: string },
+    opts?: { name?: string }
+  ): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+    if (!WebAuthnClient.isSupported()) {
+      return { success: false, error: 'WebAuthn is not supported in this browser' };
+    }
+
+    const label = opts?.name;
+
+    try {
+      const flowId = (globalThis as any).crypto?.randomUUID
+        ? (globalThis as any).crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+
+      // 1. Begin registration
+      const beginStart = Date.now();
+      const beginResponse: any = await fetch('/api/webauthn/register/begin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: user.id,
+          // Primary user identity (for RP account display) – server will embed into options.user
+          email: user.email,
+          displayName: user.name || user.email,
+          label,
+          flowId,
+        }),
+      }).then(async (r) => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch { return { success: false, error: 'Invalid JSON begin', raw: text }; }
+      });
+      const beginEnd = Date.now();
+
+      console.log('🧩 WEBAUTHN/CLIENT: REG_BEGIN', {
+        flowId,
+        durationMs: beginEnd - beginStart,
+        ok: beginResponse?.success,
+        hasOptions: !!beginResponse?.options,
+        challengeId: beginResponse?.challengeId,
+      });
+
+      if (!beginResponse.success || !beginResponse.options) {
+        return { success: false, error: beginResponse.error || 'Failed to begin passkey registration' };
+      }
+
+      // 2. Invoke authenticator
+      const regStart = Date.now();
+      const registrationResponse = await startRegistration({
+        optionsJSON: beginResponse.options,
+      });
+      const regEnd = Date.now();
+
+      console.log('🧩 WEBAUTHN/CLIENT: REG_ATTEST_RECEIVED', {
+        flowId,
+        durationMs: regEnd - regStart,
+        credentialId: registrationResponse?.id,
+        type: registrationResponse?.type,
+      });
+
+      if (!registrationResponse) {
+        return { success: false, error: 'No credential created' };
+      }
+
+      // 3. Verify & persist
+      const verifyStart = Date.now();
+      const verifyResponse: any = await fetch('/api/webauthn/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          challengeId: beginResponse.challengeId,
+          response: registrationResponse,
+          label,
+          flowId,
+        }),
+      }).then(async (r) => {
+        const txt = await r.text();
+        try { return JSON.parse(txt); } catch { return { success: false, error: 'Invalid JSON verify', raw: txt }; }
+      });
+      const verifyEnd = Date.now();
+
+      console.log('🧩 WEBAUTHN/CLIENT: REG_VERIFY_RESPONSE', {
+        flowId,
+        durationMs: verifyEnd - verifyStart,
+        success: verifyResponse?.success,
+        credentialId: verifyResponse?.credentialId,
+        error: verifyResponse?.error,
+      });
+
+      if (!verifyResponse.success) {
+        return { success: false, error: verifyResponse.error || 'Passkey registration failed' };
+      }
+
+      return {
+        success: true,
+        credentialId: verifyResponse.credentialId,
+      };
+    } catch (e: any) {
+      console.error('🧩 WEBAUTHN/CLIENT: REG_ERROR', e);
+      let msg = 'Passkey registration failed';
+      if (e?.name === 'NotAllowedError') msg = 'Registration was cancelled or timed out';
+      else if (e?.message) msg = e.message;
+      return { success: false, error: msg };
     }
   }
 }

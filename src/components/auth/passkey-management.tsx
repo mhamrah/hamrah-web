@@ -9,6 +9,7 @@ import { webauthnClient, type WebAuthnCredential } from "~/lib/auth/webauthn";
 
 interface PasskeyManagementProps {
   userId: string;
+  userEmail?: string; // optional email to associate with newly created passkeys
   onError?: QRL<(error: string) => void>;
   class?: string;
 }
@@ -34,6 +35,42 @@ export const PasskeyManagement = component$<PasskeyManagementProps>((props) => {
   const success = useSignal<string>("");
   const editingId = useSignal<string | null>(null);
   const editingName = useSignal<string>("");
+  const isAdding = useSignal(false);
+
+  const addPasskey = $(async () => {
+    error.value = "";
+    success.value = "";
+    if (isAdding.value) return;
+    if (!props.userId) {
+      error.value = "Missing user id";
+      return;
+    }
+    if (!props.userEmail) {
+      error.value = "Missing user email (required to create passkey)";
+      return;
+    }
+    if (!webauthnClient.constructor['isSupported']?.() && !(window as any).PublicKeyCredential) {
+      error.value = "WebAuthn not supported in this browser";
+      return;
+    }
+    try {
+      isAdding.value = true;
+      const result = await webauthnClient.addPasskey(
+        { id: props.userId, email: props.userEmail, name: props.userEmail },
+        {},
+      );
+      if (result.success) {
+        success.value = "Passkey added";
+        await loadPasskeys();
+      } else {
+        error.value = result.error || "Failed to add passkey";
+      }
+    } catch (e: any) {
+      error.value = e?.message || "Unexpected error adding passkey";
+    } finally {
+      isAdding.value = false;
+    }
+  });
 
   const loadPasskeys = $(async () => {
     isLoading.value = true;
@@ -121,11 +158,35 @@ export const PasskeyManagement = component$<PasskeyManagementProps>((props) => {
 
   return (
     <div class={props.class || "space-y-6"}>
-      <div>
-        <h3 class="text-lg font-semibold text-gray-900">Passkeys</h3>
-        <p class="text-sm text-gray-600">
-          Manage the passkeys that can access your account.
-        </p>
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Passkeys</h3>
+          <p class="text-sm text-gray-600">
+            Manage the passkeys that can access your account.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onClick$={addPasskey}
+            disabled={isLoading.value || isAdding.value}
+            class={[
+              "rounded-md px-3 py-2 text-sm font-medium text-white shadow",
+              (isLoading.value || isAdding.value)
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700",
+            ].join(" ")}
+          >
+            {isAdding.value ? (
+              <span class="flex items-center gap-2">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Adding…
+              </span>
+            ) : (
+              "Add Passkey"
+            )}
+          </button>
+        </div>
       </div>
 
       {error.value && (

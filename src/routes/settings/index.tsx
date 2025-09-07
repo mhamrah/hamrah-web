@@ -107,7 +107,7 @@ export default component$(() => {
 
             {/* Passkey Management */}
             <div class="border-t pt-6">
-              <PasskeyManagement userId={user.value.id} />
+              <PasskeyManagement userId={user.value.id} userEmail={user.value.email} />
             </div>
           </div>
         </div>
