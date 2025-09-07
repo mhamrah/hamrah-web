@@ -144,6 +144,7 @@ export const onPost: RequestHandler = async (event) => {
       try {
         const clientDataJSON = JSON.parse(authResponse.response.clientDataJSON);
         expectedChallenge = clientDataJSON.challenge;
+        console.log("zzzz", JSON.stringify(clientDataJSON))
       } catch (e) {
         console.log("✅ WEBAUTHN/VERIFY: Failed to parse clientDataJSON", {
           error: (e as any)?.message,
@@ -173,11 +174,12 @@ export const onPost: RequestHandler = async (event) => {
         id: credential.id,
         publicKey: new Uint8Array(Buffer.from(credential.public_key, "base64")),
         counter: credential.counter,
-        transports: credential.transports ? JSON.parse(credential.transports) : [],
+        transports: credential.transports || undefined,
       },
       requireUserVerification: true,
     };
 
+    console.log("verification", JSON.stringify(verification))
     const verifyStart = Date.now();
     const verificationResult = await verifyAuthenticationResponse(verification);
     const verifyEnd = Date.now();
