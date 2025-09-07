@@ -43,7 +43,10 @@ export const onPost: RequestHandler = async (event) => {
 
     const { RP_ID, EXPECTED_ORIGIN } = getWebAuthnConfig();
     const apiClient = createApiClient(event);
-    const internalApiClient = createInternalApiClient(event);
+    // Lazily create internal API client later (after successful WebAuthn verification)
+    // because in CI / local E2E there is no AUTH_API service binding and early construction
+    // throws, causing a 500 instead of a structured failure response.
+    let internalApiClient: any = null;
 
     // Extract canonical credential ID (SimpleWebAuthn JSON already base64url)
     const credentialId: string | undefined = authResponse?.id;
@@ -205,6 +208,22 @@ export const onPost: RequestHandler = async (event) => {
       newCounter: verificationResult.authenticationInfo.newCounter,
       durationMs: counterUpdateEnd - counterUpdateStart,
     });
+
+    // Lazily instantiate internalApiClient only after verification succeeds.
+    // If unavailable (e.g., CI without service binding) return a graceful failure
+    // so tests receive a structured { success: false, error } object instead of 500.
+    try {
+      internalApiClient = createInternalApiClient(event);
+    } catch (e: any) {
+      console.warn("✅ WEBAUTHN/VERIFY: Internal API unavailable, returning structured failure", {
+        message: e?.message,
+      });
+      event.json(200, {
+        success: false,
+        error: "Internal service unavailable",
+      });
+      return;
+    }
 
     const userFetchStart = Date.now();
     const userResponse = await internalApiClient.get(`/api/internal/users/${credential.user_id}`);
