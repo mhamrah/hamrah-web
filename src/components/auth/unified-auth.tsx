@@ -59,6 +59,11 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
 
         success.value = "Signed in with passkey!";
         await props.onSuccess?.(result.user);
+        const target = redirectUrl || '/';
+        // Redirect shortly to allow state updates to flush
+        setTimeout(() => {
+          window.location.href = target;
+        }, 10);
       } else {
         passkeyFailureCount.value++;
         const msg = result.error || "Authentication failed";

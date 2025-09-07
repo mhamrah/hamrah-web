@@ -45,11 +45,9 @@ export const onPost: RequestHandler = async (event) => {
     // ignore, will validate below
   }
 
-  const flowId =
-    body?.flowId ||
-    (globalThis.crypto?.randomUUID
-      ? globalThis.crypto.randomUUID()
-      : Math.random().toString(36).slice(2));
+  const flowId = body.flowId || (typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2));
 
   try {
     const { RP_NAME, RP_ID } = getWebAuthnConfig();
@@ -94,9 +92,7 @@ export const onPost: RequestHandler = async (event) => {
       supportedAlgorithmIDs: [-7, -257], // ES256, RS256
     } as GenerateRegistrationOptionsOpts;
 
-    const genStart = Date.now();
     const options = await generateRegistrationOptions(optionsConfig as any);
-    const genEnd = Date.now();
 
     // Create a separate challengeId for indirection (do not expose DB row PK directly)
     const challengeId = crypto.randomUUID();
@@ -104,7 +100,6 @@ export const onPost: RequestHandler = async (event) => {
     const expiresAt = Date.now() + expiresInMs;
 
     // Store challenge in API (challenge_type=registration)
-    const storeStart = Date.now();
     await apiClient.post("/api/webauthn/challenges", {
       id: challengeId,
       challenge: options.challenge,
@@ -112,20 +107,8 @@ export const onPost: RequestHandler = async (event) => {
       challenge_type: "registration",
       expires_at: expiresAt,
     });
-    const storeEnd = Date.now();
 
-    console.log("🧩 WEBAUTHN/REG_BEGIN: SUCCESS", {
-      flowId,
-      userId,
-      email,
-      labelProvided: !!label,
-      challengeId,
-      rpId: RP_ID,
-      haveExclude: excludeList.length,
-      genDurationMs: genEnd - genStart,
-      storeDurationMs: storeEnd - storeStart,
-      totalDurationMs: Date.now() - startTs,
-    });
+
 
     // Attach metadata used client side (client can send it back unchanged)
     const enrichedOptions = {
