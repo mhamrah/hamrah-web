@@ -6,6 +6,7 @@ import {
 import { createApiClient } from "~/lib/auth/api-client";
 import { createInternalApiClient } from "~/lib/auth/internal-api-client";
 import { getWebAuthnConfig } from "~/lib/webauthn/config";
+import { setSessionTokenCookie } from "~/lib/auth/session";
 
 export const onPost: RequestHandler = async (event) => {
   const startTs = Date.now();
@@ -145,6 +146,10 @@ export const onPost: RequestHandler = async (event) => {
         // silently ignore cleanup errors
       }
     }
+
+    // Set persistent session cookie (30 days) so the user stays logged in after passkey auth
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+    setSessionTokenCookie(event, sessionResponse.access_token, expiresAt);
 
     event.json(200, {
       success: true,
