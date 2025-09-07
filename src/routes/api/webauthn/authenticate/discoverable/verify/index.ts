@@ -227,26 +227,12 @@ export const onPost: RequestHandler = async (event) => {
       return;
     }
 
-    const userFetchStart = Date.now();
-    const userResponse = await internalApiClient.get(`/api/internal/users/${credential.user_id}`);
-    const userFetchEnd = Date.now();
-    console.log("✅ WEBAUTHN/VERIFY: User fetch result", {
-      userId: credential.user_id,
-      success: !!userResponse?.user,
-      durationMs: userFetchEnd - userFetchStart,
-    });
-
-    if (!userResponse || !userResponse.user) {
-      event.json(500, {
-        success: false,
-        error: "User not found after authentication",
-      });
-      return;
-    }
+    // Removed deprecated/nonexistent GET /api/internal/users/{id} call.
+    // Session creation endpoint returns the user object; no need for a prior fetch.
 
     const sessionStart = Date.now();
     const sessionResponse = await internalApiClient.createSession({
-      user_id: userResponse.user.id,
+      user_id: credential.user_id,
       platform: "web",
     });
     const sessionEnd = Date.now();
@@ -256,7 +242,7 @@ export const onPost: RequestHandler = async (event) => {
       durationMs: sessionEnd - sessionStart,
     });
 
-    if (!sessionResponse.success || !sessionResponse.access_token) {
+    if (!sessionResponse.success || !sessionResponse.access_token || !sessionResponse.user) {
       event.json(500, {
         success: false,
         error: "Failed to create session",
@@ -277,14 +263,14 @@ export const onPost: RequestHandler = async (event) => {
     const endTs = Date.now();
     console.log("✅ WEBAUTHN/VERIFY: SUCCESS", {
       totalDurationMs: endTs - startTs,
-      userId: userResponse.user.id,
+      userId: sessionResponse.user.id,
       credentialId,
     });
 
     event.json(200, {
       success: true,
       message: "Authentication successful",
-      user: userResponse.user,
+      user: sessionResponse.user,
       session_token: sessionResponse.access_token,
     });
   } catch (error) {
