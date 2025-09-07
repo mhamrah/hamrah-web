@@ -1,73 +1,40 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Passkey Explicit Fallback Flow (Discoverable Auth) – E2E Skeleton
+ * Passkey Explicit (Single Button) Flow – E2E Skeleton
  *
- * This test DOES NOT perform a real WebAuthn ceremony (Playwright cannot
- * trigger real platform authenticators in headless CI without specialized
- * device emulation). Instead, it:
- *  1. Navigates to login page (unauthenticated state).
- *  2. Clicks the primary "Sign in with Passkey" button (conditional UI path).
- *  3. Clicks the fallback "explicit" passkey button to invoke the new flow.
- *  4. Injects a mock for `navigator.credentials.get` (via @simplewebauthn/browser
- *     startAuthentication) to simulate a successful assertion.
- *  5. Waits for the network call to the conditional completion endpoint.
- *  6. Verifies success UI state OR logs test diagnostics.
+ * This test exercises the explicit discoverable passkey authentication pathway.
  *
- * You can later replace the mock with a more realistic assertion object
- * (e.g., captured from a real device) if you build a test harness.
+ * Notes:
+ * - Real platform authenticator UI cannot be triggered in headless CI; we mock the WebAuthn call.
+ * - We intercept:
+ *    1. The discoverable "begin" challenge request:  POST /api/webauthn/authenticate/discoverable
+ *    2. The verification/complete request:           POST /api/webauthn/authenticate/discoverable/verify
+ * - We monkey‑patch navigator.credentials.get (or the underlying call used by @simplewebauthn/browser)
+ *   to return a synthetic assertion object.
  *
- * NOTE: This file is intentionally a skeleton and uses a mocked WebAuthn
- * response so that CI can exercise the fallback logic wiring without relying
- * on real platform dialogs.
+ * Success Criteria:
+ * - Both network calls occur.
+ * - The verify response returns either success (unlikely with fake signature unless backend relaxed)
+ *   or a structured error object. Either case is acceptable; the goal is to ensure wiring is intact.
  */
 
-test.describe('Passkey Fallback (Explicit Discoverable) Flow', () => {
+test.describe('Explicit Passkey Auth (Single Button)', () => {
   test.beforeEach(async ({ page }) => {
-    // Helpful console collection during test runs
+    // Capture browser console noise for debugging CI issues
     page.on('console', (msg) => {
-      const type = msg.type();
-      if (['error', 'warning'].includes(type)) {
-        // Surface noteworthy logs in test output
+      const t = msg.type();
+      if (['error', 'warning'].includes(t)) {
         // eslint-disable-next-line no-console
-        console.log(`[browser:${type}] ${msg.text()}`);
+        console.log(`[browser:${t}] ${msg.text()}`);
       }
     });
-  });
 
-  test('should attempt explicit discoverable auth and handle mocked success', async ({ page }) => {
-    await page.goto('/auth/login');
-
-    await expect(page).toHaveURL(/\/auth\/login\/?/);
-    await expect(page.locator('text=Sign in with Passkey')).toBeVisible();
-
-    // Intercept the discoverable challenge request
-    const discoverableChallenge = page.waitForResponse((resp) =>
-      resp.url().includes('/api/webauthn/authenticate/discoverable') && resp.request().method() === 'POST'
-    );
-
-    // Click primary (conditional) button first
-    await page.click('button:has-text("Sign in with Passkey"), button:has-text("Continue with Passkey")');
-
-    // Wait a short grace period for conditional UI attempt (will be silent under mock)
-    await page.waitForTimeout(300);
-
-    // Click fallback explicit discoverable button
-    const fallbackButton = page.locator('button:has-text("explicit passkey prompt")');
-    await expect(fallbackButton).toBeVisible();
-    await fallbackButton.click();
-
-    // Wait for discoverable challenge to be requested
-    await discoverableChallenge;
-
-    // Inject mock BEFORE the library calls startAuthentication() (we rely on microtask timing)
+    // Install WebAuthn mock before any app bundles execute
     await page.addInitScript(() => {
-      // Only patch once
       if ((window as any).__webauthnMockInstalled) return;
       (window as any).__webauthnMockInstalled = true;
 
-      // Patch global startAuthentication if loaded via module
-      // Fallback: patch navigator.credentials.get if direct API is used.
       const mockAssertion = {
         id: 'mock-credential-id',
         rawId: new Uint8Array([1, 2, 3, 4]).buffer,
@@ -86,21 +53,13 @@ test.describe('Passkey Fallback (Explicit Discoverable) Flow', () => {
         getClientExtensionResults: () => ({}),
       };
 
-      // Attempt to monkey patch @simplewebauthn/browser global if present later
-      Object.defineProperty(window, '__DEFER_WEB_AUTHN_PATCH__', {
-        value: true,
-        writable: false,
-        enumerable: false,
-      });
-
-      const installNavigatorPatch = () => {
+      const patch = () => {
         if (navigator.credentials && typeof navigator.credentials.get === 'function') {
           const originalGet = navigator.credentials.get.bind(navigator.credentials);
           (navigator.credentials as any).get = async (options: any) => {
-            // Heuristic: if publicKey exists, treat as a WebAuthn get()
+            // Heuristic: if it looks like a WebAuthn publicKey request, return mock
             if (options && options.publicKey) {
-              // Simulate async authenticator delay
-              await new Promise((r) => setTimeout(r, 50));
+              await new Promise((r) => setTimeout(r, 25)); // simulate async delay
               return mockAssertion as unknown as Credential;
             }
             return originalGet(options);
@@ -108,35 +67,53 @@ test.describe('Passkey Fallback (Explicit Discoverable) Flow', () => {
         }
       };
 
-      installNavigatorPatch();
-      // In case site lazy loads auth libs after a tick
-      setTimeout(installNavigatorPatch, 100);
+      patch();
+      // Re-try shortly in case app lazily hydrates / polyfills later
+      setTimeout(patch, 100);
     });
+  });
 
-    // Intercept conditional completion call
-    const completion = page.waitForResponse((resp) =>
-      resp.url().includes('/api/webauthn/authenticate/conditional') && resp.request().method() === 'POST'
+  test('should perform explicit discoverable passkey flow (mocked)', async ({ page }) => {
+    await page.goto('/auth/login');
+
+    // Basic page check
+    await expect(page).toHaveURL(/\/auth\/login\/?/);
+    const passkeyButton = page.locator('button:has-text("Sign in with Passkey")');
+    await expect(passkeyButton).toBeVisible();
+
+    // Prepare network intercepts
+    const beginPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/webauthn/authenticate/discoverable') &&
+      resp.request().method() === 'POST'
     );
 
-    // Give time for mock patched get() to resolve and backend verification to be called
-    const completionResp = await completion;
-    const completionJson = await completionResp.json().catch(() => ({} as any));
+    const verifyPromise = page.waitForResponse((resp) =>
+      resp.url().includes('/api/webauthn/authenticate/discoverable/verify') &&
+      resp.request().method() === 'POST'
+    );
 
-    // Log diagnostics for debugging
+    // Trigger explicit passkey auth
+    await passkeyButton.click();
+
+    const beginResp = await beginPromise;
+    const beginJson = await beginResp.json().catch(() => ({}));
     // eslint-disable-next-line no-console
-    console.log('Completion response JSON (mocked flow):', completionJson);
+    console.log('Begin (discoverable) response:', beginJson);
 
-    // We allow either success (if backend accepts mock) or a controlled failure (if signature invalid)
-    // The point is to exercise the explicit fallback request path deterministically.
-    if (completionJson.success) {
-      // Expect session token or user data present
-      expect(completionJson).toHaveProperty('session_token');
-    } else {
-      // If backend rejects (likely, due to fake signature), assert we got structured error
-      expect(completionJson).toHaveProperty('error');
+    expect(beginJson).toHaveProperty('success');
+
+    const verifyResp = await verifyPromise;
+    const verifyJson = await verifyResp.json().catch(() => ({}));
+    // eslint-disable-next-line no-console
+    console.log('Verify (discoverable) response:', verifyJson);
+
+    // We accept either success (unlikely) or a structured failure.
+    expect(verifyJson).toHaveProperty('success');
+    if (!verifyJson.success) {
+      expect(verifyJson).toHaveProperty('error');
     }
 
-    // UI should remain functional (no unhandled exceptions)
+    // Page should remain interactive
     await expect(page.locator('body')).toBeVisible();
   });
 });

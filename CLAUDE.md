@@ -136,9 +136,10 @@ tsconfig.json
 
 ### Authentication Flow
 
-1. **OAuth Integration**: Handles Apple/Google OAuth flows in the web layer
-2. **API Communication**: All user creation, session management via hamrah-api
-3. **Session Storage**: Session tokens stored in HTTP-only cookies
+1. **Passkey Authentication (Explicit Discoverable Only)**: A single explicit “Sign in with Passkey” button triggers a discoverable WebAuthn authentication ceremony (no conditional UI/autofill, no email-scoped pre-step, no separate signup/login passkey components). The browser shows the native platform authenticator prompt (Face ID / Touch ID / Windows Hello) and the resulting assertion is verified via hamrah-api.
+2. **OAuth Integration**: Apple and Google OAuth remain as alternative sign‑in methods alongside passkeys.
+3. **API Communication**: All user creation and session management still flow exclusively through hamrah-api (service binding).
+4. **Session Storage**: Session tokens are stored in HTTP-only cookies.
 
 ### API Integration
 

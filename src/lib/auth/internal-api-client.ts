@@ -63,7 +63,7 @@ export class InternalApiClient {
     this.event = event;
     // Get the AUTH_API service binding from Cloudflare environment
     this.authApiService = (event.platform.env as any).AUTH_API as Fetcher;
-    
+    console.log('ctor internal api', this.authApiService)
     if (!this.authApiService) {
       throw new Error('AUTH_API service binding not found. Ensure this is only called server-side and the service binding is configured.');
     }

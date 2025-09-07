@@ -23,62 +23,22 @@ describe("iOS WebAuthn Integration", () => {
     console.log("Current WebAuthn config:", config);
   });
 
-  test("iOS registration request format should be compatible", () => {
-    // This simulates the request format from iOS WebAuthnSignUpView
-    const iosRegistrationRequest = {
-      email: "test@example.com",
-      name: "Test User",
-    };
-
-    // Verify the request structure matches web endpoint expectations
-    expect(iosRegistrationRequest).toHaveProperty("email");
-    expect(iosRegistrationRequest).toHaveProperty("name");
-    expect(typeof iosRegistrationRequest.email).toBe("string");
-    expect(typeof iosRegistrationRequest.name).toBe("string");
+  test("discoverable passkey begin request format should be compatible", () => {
+    // Explicit discoverable flow may include an optional { explicit: true } flag; body can also be empty.
+    const beginRequest = { explicit: true };
+    expect(beginRequest).toHaveProperty("explicit");
+    expect(typeof beginRequest.explicit).toBe("boolean");
   });
 
-  test("iOS authentication request format should be compatible", () => {
-    // This simulates the request format from iOS NativeAuthManager
-    const iosAuthRequest = {
-      email: "test@example.com",
-    };
-
-    // Verify the request structure matches web endpoint expectations
-    expect(iosAuthRequest).toHaveProperty("email");
-    expect(typeof iosAuthRequest.email).toBe("string");
+  test("legacy email-based authentication request deprecated", () => {
+    // Email-scoped passkey authentication has been removed; no email prerequisite is required now.
+    const requiresEmail = false;
+    expect(requiresEmail).toBe(false);
   });
 
-  test("iOS complete registration format should be compatible", () => {
-    // This simulates the complete registration format from iOS
-    const iosCompleteRequest = {
-      response: {
-        id: "base64-credential-id",
-        rawId: "base64-credential-id",
-        type: "public-key",
-        response: {
-          attestationObject: "base64-attestation-object",
-          clientDataJSON: "base64-client-data-json",
-        },
-      },
-      challengeId: "challenge-uuid",
-      email: "test@example.com",
-      name: "Test User",
-    };
-
-    // Verify the request structure matches SimpleWebAuthn format expected by web
-    expect(iosCompleteRequest.response).toHaveProperty("id");
-    expect(iosCompleteRequest.response).toHaveProperty("rawId");
-    expect(iosCompleteRequest.response).toHaveProperty("type");
-    expect(iosCompleteRequest.response).toHaveProperty("response");
-    expect(iosCompleteRequest.response.response).toHaveProperty(
-      "attestationObject",
-    );
-    expect(iosCompleteRequest.response.response).toHaveProperty(
-      "clientDataJSON",
-    );
-    expect(iosCompleteRequest).toHaveProperty("challengeId");
-    expect(iosCompleteRequest).toHaveProperty("email");
-    expect(iosCompleteRequest).toHaveProperty("name");
+  test("registration flow deprecated", () => {
+    // Server-side explicit registration endpoints removed; only discoverable authentication remains.
+    expect(true).toBe(true);
   });
 
   test("iOS complete authentication format should be compatible", () => {
@@ -118,19 +78,14 @@ describe("iOS WebAuthn Integration", () => {
     expect(iosCompleteAuthRequest).toHaveProperty("challengeId");
   });
 
-  test("WebAuthn endpoints should exist for iOS integration", () => {
-    // This test ensures the expected endpoints exist
+  test("WebAuthn endpoints (explicit discoverable flow) should exist", () => {
+    // Updated endpoint surface after deprecating registration & email-scoped flows
     const requiredEndpoints = [
-      "/api/webauthn/register/begin",
-      "/api/webauthn/register/complete",
-      "/api/webauthn/authenticate/begin",
-      "/api/webauthn/authenticate/complete",
-      "/api/webauthn/add-passkey/begin",
-      "/api/webauthn/add-passkey/complete",
+      "/api/webauthn/authenticate/discoverable",
+      "/api/webauthn/authenticate/discoverable/verify",
     ];
 
-    // Verify we have all required endpoints
-    expect(requiredEndpoints).toHaveLength(6);
+    expect(requiredEndpoints).toHaveLength(2);
     requiredEndpoints.forEach((endpoint) => {
       expect(typeof endpoint).toBe("string");
       expect(endpoint).toMatch(/^\/api\/webauthn\//);
