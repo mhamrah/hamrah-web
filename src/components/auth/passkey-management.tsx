@@ -5,7 +5,7 @@ import {
   $,
   type QRL,
 } from "@builder.io/qwik";
-import { webauthnClient, type WebAuthnCredential } from "~/lib/auth/webauthn";
+import { webauthnClient, WebAuthnClient, type WebAuthnCredential } from "~/lib/auth/webauthn";
 
 interface PasskeyManagementProps {
   userId: string;
@@ -49,7 +49,7 @@ export const PasskeyManagement = component$<PasskeyManagementProps>((props) => {
       error.value = "Missing user email (required to create passkey)";
       return;
     }
-    if (!webauthnClient.constructor['isSupported']?.() && !(window as any).PublicKeyCredential) {
+    if (!WebAuthnClient.isSupported()) {
       error.value = "WebAuthn not supported in this browser";
       return;
     }

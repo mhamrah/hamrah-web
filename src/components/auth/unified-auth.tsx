@@ -45,7 +45,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         passkeySuccessCount.value++;
 
         // Fire a lightweight custom event for any global listener (analytics hook)
-        globalThis.dispatchEvent?.(
+        globalThis.dispatchEvent(
           new CustomEvent("telemetry:passkey-auth", {
             detail: {
               outcome: "success",
@@ -63,7 +63,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
         passkeyFailureCount.value++;
         const msg = result.error || "Authentication failed";
 
-        globalThis.dispatchEvent?.(
+        globalThis.dispatchEvent(
           new CustomEvent("telemetry:passkey-auth", {
             detail: {
               outcome: "failure",
@@ -83,7 +83,7 @@ export const UnifiedAuth = component$<UnifiedAuthProps>((props) => {
       passkeyFailureCount.value++;
       const msg = e instanceof Error ? e.message : "Authentication failed";
 
-      globalThis.dispatchEvent?.(
+      globalThis.dispatchEvent(
         new CustomEvent("telemetry:passkey-auth", {
           detail: {
             outcome: "error",
